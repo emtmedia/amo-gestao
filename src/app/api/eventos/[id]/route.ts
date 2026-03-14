@@ -15,20 +15,34 @@ export async function GET(_: NextRequest, { params }: { params: { id: string } }
 export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
   try {
     const body = await request.json()
-    if (body.dataInicio) body.dataInicio = new Date(body.dataInicio).toISOString()
-    if (body.dataEncerramento) body.dataEncerramento = new Date(body.dataEncerramento).toISOString()
-    if (body.orcamentoEstimado) body.orcamentoEstimado = parseFloat(body.orcamentoEstimado)
-    if (body.numeroVoluntarios !== undefined && body.numeroVoluntarios !== '') body.numeroVoluntarios = parseInt(body.numeroVoluntarios)
-    const optionals = ['emailResponsavel','enderecoGoogleMaps','comentarios','arquivosReferencia','contaBancariaVinculada1','contaBancariaVinculada2','estadoRealizacao','cidadeRealizacao','ufId','cidadeId']
-    for (const f of optionals) { if (body[f] === '') body[f] = null }
+
+    const data: Record<string, unknown> = {
+      nome:                    body.nome,
+      dataInicio:              body.dataInicio ? new Date(body.dataInicio).toISOString() : undefined,
+      dataEncerramento:        body.dataEncerramento ? new Date(body.dataEncerramento).toISOString() : undefined,
+      responsavel:             body.responsavel,
+      emailResponsavel:        body.emailResponsavel || null,
+      telefoneResponsavel:     body.telefoneResponsavel,
+      orcamentoEstimado:       body.orcamentoEstimado ? parseFloat(body.orcamentoEstimado) : undefined,
+      contaBancariaVinculada1: body.contaBancariaVinculada1 || null,
+      contaBancariaVinculada2: body.contaBancariaVinculada2 || null,
+      paisRealizacao:          body.paisRealizacao || 'Brasil',
+      estadoRealizacao:        body.estadoRealizacao || null,
+      cidadeRealizacao:        body.cidadeRealizacao || null,
+      enderecoGoogleMaps:      body.enderecoGoogleMaps || null,
+      numeroVoluntarios:       body.numeroVoluntarios ? parseInt(body.numeroVoluntarios) : null,
+      comentarios:             body.comentarios || null,
+      arquivosReferencia:      body.arquivosReferencia || null,
+      updatedAt:               new Date(),
+    }
+
+    // Remove undefined fields
+    Object.keys(data).forEach(k => { if (data[k] === undefined) delete data[k] })
 
     // Handle relation field
-    const projetoId = body.projetoVinculadoId
-    delete body.projetoVinculadoId
-    const data: Record<string, unknown> = { ...body, updatedAt: new Date() }
-    if (projetoId) {
-      data.projeto = { connect: { id: projetoId } }
-    } else if (projetoId === null || projetoId === '') {
+    if (body.projetoVinculadoId) {
+      data.projeto = { connect: { id: body.projetoVinculadoId } }
+    } else if (body.projetoVinculadoId === null || body.projetoVinculadoId === '') {
       data.projeto = { disconnect: true }
     }
 

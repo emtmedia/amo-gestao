@@ -15,26 +15,34 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const dateFields = ['dataInicio', 'dataEncerramento']
-    for (const f of dateFields) {
-      if (body[f] && typeof body[f] === 'string') body[f] = new Date(body[f]).toISOString()
+
+    // Build data with only valid Evento model fields
+    const data: Record<string, unknown> = {
+      nome:                    body.nome,
+      dataInicio:              new Date(body.dataInicio).toISOString(),
+      dataEncerramento:        new Date(body.dataEncerramento).toISOString(),
+      responsavel:             body.responsavel,
+      emailResponsavel:        body.emailResponsavel || null,
+      telefoneResponsavel:     body.telefoneResponsavel,
+      orcamentoEstimado:       body.orcamentoEstimado ? parseFloat(body.orcamentoEstimado) : 0,
+      contaBancariaVinculada1: body.contaBancariaVinculada1 || null,
+      contaBancariaVinculada2: body.contaBancariaVinculada2 || null,
+      paisRealizacao:          body.paisRealizacao || 'Brasil',
+      estadoRealizacao:        body.estadoRealizacao || null,
+      cidadeRealizacao:        body.cidadeRealizacao || null,
+      enderecoGoogleMaps:      body.enderecoGoogleMaps || null,
+      numeroVoluntarios:       body.numeroVoluntarios ? parseInt(body.numeroVoluntarios) : null,
+      comentarios:             body.comentarios || null,
+      arquivosReferencia:      body.arquivosReferencia || null,
     }
-    if (body.orcamentoEstimado !== undefined && body.orcamentoEstimado !== '') body.orcamentoEstimado = parseFloat(body.orcamentoEstimado)
-    if (body.numeroVoluntarios !== undefined && body.numeroVoluntarios !== '') body.numeroVoluntarios = parseInt(body.numeroVoluntarios)
-    const optionals = ['emailResponsavel', 'contaBancariaVinculada1', 'contaBancariaVinculada2', 'ufId', 'cidadeId', 'estadoRealizacao', 'cidadeRealizacao', 'enderecoGoogleMaps', 'comentarios', 'arquivosReferencia']
-    for (const f of optionals) { if (body[f] === '' || body[f] === undefined) body[f] = null }
 
     // Handle relation field - Prisma needs connect syntax
-    const projetoId = body.projetoVinculadoId || null
-    delete body.projetoVinculadoId
-
-    const data: Record<string, unknown> = { ...body }
-    if (projetoId) {
-      data.projeto = { connect: { id: projetoId } }
+    if (body.projetoVinculadoId) {
+      data.projeto = { connect: { id: body.projetoVinculadoId } }
     }
 
     const item = await prisma.evento.create({ data })
-    await logAudit("CRIAR", "Evento", item.id, `Criado: ${JSON.stringify(body).substring(0,200)}`)
+    await logAudit("CRIAR", "Evento", item.id, `Criado: ${body.nome}`)
     return NextResponse.json({ success: true, data: item })
   } catch (error: unknown) {
     console.error('POST evento error:', error)
