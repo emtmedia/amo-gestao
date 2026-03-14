@@ -117,9 +117,27 @@ export default function ImoveisPage() {
   }
 
   const handleSave = async () => {
-    const required = ['tipoImovel','locadoPara','rua','numero','bairro','ufId','cidadeId','nomeLocador','dataInicio','valorLocacao','proposito','condicoesBenfeitoria']
-    if (required.some(k => !form[k as keyof typeof emptyForm])) {
-      showToast('Preencha todos os campos obrigatórios', 'error'); return
+    const requiredFields: [string, string][] = [
+      ['tipoImovel', 'Tipo de Imóvel'],
+      ['locadoPara', 'Locado Para'],
+      ['rua', 'Rua/Avenida'],
+      ['numero', 'Número'],
+      ['bairro', 'Bairro'],
+      ['ufId', 'Estado (UF)'],
+      ['cidadeId', 'Cidade'],
+      ['nomeLocador', 'Nome do Locador'],
+      ['dataInicio', 'Data de Início'],
+      ['valorLocacao', 'Valor da Locação'],
+      ['proposito', 'Propósito de Locação'],
+      ['condicoesBenfeitoria', 'Condições de Benfeitoria'],
+    ]
+    const missing = requiredFields.filter(([k]) => {
+      const v = form[k as keyof typeof emptyForm]
+      return !v || (typeof v === 'string' && v.trim() === '')
+    })
+    if (missing.length > 0) {
+      showToast(`Campo(s) obrigatório(s): ${missing.map(([,l]) => l).join(', ')}`, 'error')
+      return
     }
     setSaving(true)
     try {
