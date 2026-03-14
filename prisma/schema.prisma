@@ -1,0 +1,921 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ============================================
+// 1. DEPARTAMENTOS
+// ============================================
+model Departamento {
+  id                   String   @id @default(cuid())
+  nome                 String
+  telefoneFixo         String
+  responsavelPrincipal String
+  telefoneCelular      String
+  emailResponsavel     String?
+  descricao            String
+  linkDepartamento     String?
+  orcamentoAnual       Float?
+  observacoes          String?
+  arquivosReferencia   String?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  projetos             ProjetoFilantropia[]
+}
+
+// ============================================
+// 2. VOLUNTÁRIOS AMO
+// ============================================
+model VoluntarioAMO {
+  id                 String   @id @default(cuid())
+  nome               String
+  cpf                String   @unique
+  dataNascimento     DateTime
+  enderecoCompleto   String
+  genero             String
+  competencias       String
+  membroIgrejaOmega  Boolean  @default(false)
+  fotografia         String?
+  arquivosReferencia String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  voluntariosProjeto VoluntarioProjeto[]
+  voluntariosEvento  VoluntarioEvento[]
+}
+
+// ============================================
+// 3. PROJETOS DE FILANTROPIA
+// ============================================
+model ProjetoFilantropia {
+  id                      String   @id @default(cuid())
+  nome                    String
+  dataInicio              DateTime
+  dataEncerramento        DateTime
+  responsavel             String
+  emailResponsavel        String?
+  telefoneResponsavel     String
+  orcamentoEstimado       Float
+  contaBancariaVinculada1 String?
+  contaBancariaVinculada2 String?
+  paisRealizacao          String   @default("Brasil")
+  ufId                    String?
+  cidadeId                String?
+  estadoRealizacao        String?
+  cidadeRealizacao        String?
+  numeroVoluntarios       Int?
+  departamentoId          String?
+  comentarios             String?
+  arquivosReferencia      String?
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+
+  departamento            Departamento?       @relation(fields: [departamentoId], references: [id])
+  voluntarios             VoluntarioProjeto[]
+  eventos                 Evento[]
+  consolidacao            ConsolidacaoProjeto?
+}
+
+// ============================================
+// 4. VOLUNTÁRIOS DO PROJETO
+// ============================================
+model VoluntarioProjeto {
+  id                 String   @id @default(cuid())
+  voluntarioId       String
+  projetoId          String
+  funcaoCargo        String
+  cpf                String
+  dataNascimento     DateTime
+  dataInicio         DateTime
+  dataSaida          DateTime?
+  igrejaOrigem       String
+  fotografia         String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  voluntario         VoluntarioAMO      @relation(fields: [voluntarioId], references: [id])
+  projeto            ProjetoFilantropia @relation(fields: [projetoId], references: [id])
+}
+
+// ============================================
+// 5. EVENTOS AVULSOS OU DE PROJETOS
+// ============================================
+model Evento {
+  id                      String   @id @default(cuid())
+  projetoVinculadoId      String?
+  nome                    String
+  dataInicio              DateTime
+  dataEncerramento        DateTime
+  responsavel             String
+  emailResponsavel        String?
+  telefoneResponsavel     String
+  orcamentoEstimado       Float
+  contaBancariaVinculada1 String?
+  contaBancariaVinculada2 String?
+  paisRealizacao          String   @default("Brasil")
+  estadoRealizacao        String?
+  cidadeRealizacao        String?
+  enderecoGoogleMaps      String?
+  numeroVoluntarios       Int?
+  comentarios             String?
+  arquivosReferencia      String?
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+
+  projeto                 ProjetoFilantropia? @relation(fields: [projetoVinculadoId], references: [id])
+  voluntarios             VoluntarioEvento[]
+  consolidacao            ConsolidacaoEvento?
+}
+
+// ============================================
+// 6. VOLUNTÁRIOS DO EVENTO
+// ============================================
+model VoluntarioEvento {
+  id                 String    @id @default(cuid())
+  voluntarioId       String
+  eventoId           String
+  funcaoCargo        String
+  cpf                String
+  dataNascimento     DateTime
+  dataInicio         DateTime
+  dataSaida          DateTime?
+  igrejaOrigem       String?
+  fotografia         String?
+  arquivosReferencia String?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  voluntario         VoluntarioAMO @relation(fields: [voluntarioId], references: [id])
+  evento             Evento        @relation(fields: [eventoId], references: [id])
+}
+
+// ============================================
+// 7. UF (Unidades da Federação)
+// ============================================
+model UF {
+  id        String   @id @default(cuid())
+  codigo    String   @unique
+  nome      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  cidades   Cidade[]
+}
+
+// ============================================
+// 8. CIDADES
+// ============================================
+model Cidade {
+  id        String   @id @default(cuid())
+  nome      String
+  ufId      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  uf        UF @relation(fields: [ufId], references: [id])
+}
+
+// ============================================
+// 9. CONDIÇÕES DE RECEITA
+// ============================================
+model CondicaoReceita {
+  id        String   @id @default(cuid())
+  nome      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ============================================
+// 10. CONTAS BANCÁRIAS
+// ============================================
+model ContaBancaria {
+  id         String   @id @default(cuid())
+  tipo       String   // Corrente, Poupança, Investimento
+  banco      String
+  agencia    String
+  numeroConta String
+  descricao  String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+// ============================================
+// 11. MÉTODOS DE TRANSFERÊNCIA/PAGAMENTO
+// ============================================
+model MetodoTransferencia {
+  id        String   @id @default(cuid())
+  nome      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ============================================
+// 12. CURSOS E TREINAMENTOS
+// ============================================
+model CursoTreinamento {
+  id        String   @id @default(cuid())
+  nome      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ============================================
+// 13. PRODUTOS
+// ============================================
+model Produto {
+  id        String   @id @default(cuid())
+  nome      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ============================================
+// 14. SERVIÇOS
+// ============================================
+model Servico {
+  id        String   @id @default(cuid())
+  nome      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ============================================
+// 15. RECEITA PÚBLICA
+// ============================================
+model ReceitaPublica {
+  id                    String   @id @default(cuid())
+  tipoReceita           String   // Municipal, Estadual, Federal, Outros
+  ufId                  String?
+  cidadeId              String?
+  nomeOrgao             String
+  nomeSetor             String
+  nomeContato           String?
+  telefoneContato       String?
+  telefoneFixo          String?
+  emailContato          String?
+  condicaoReceitaId     String
+  valorRecurso          Float
+  dataEntrada           DateTime
+  contaBancariaId       String
+  metodoTransferenciaId String
+  projetoDirecionado    String?
+  eventoDirecionado     String?
+  observacoes           String?
+  arquivosReferencia    String?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+}
+
+// ============================================
+// 16. RECEITA PESSOA FÍSICA
+// ============================================
+model ReceitaPessoaFisica {
+  id                    String   @id @default(cuid())
+  nomeContribuinte      String
+  telefone              String
+  telefoneFixo          String?
+  email                 String?
+  dataEntrada           DateTime
+  contaBancariaId       String
+  valorContribuicao     Float
+  metodoTransferenciaId String
+  projetoDirecionado    String?
+  eventoDirecionado     String?
+  observacoes           String?
+  arquivosReferencia    String?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+}
+
+// ============================================
+// 17. RECEITA PESSOA JURÍDICA
+// ============================================
+model ReceitaPessoaJuridica {
+  id                    String   @id @default(cuid())
+  nomeEmpresa           String
+  telefoneContato       String
+  telefoneFixo          String?
+  emailContato          String?
+  dataEntrada           DateTime
+  contaBancariaId       String
+  valorContribuicao     Float
+  metodoTransferenciaId String
+  projetoDirecionado    String?
+  eventoDirecionado     String?
+  observacoes           String?
+  arquivosReferencia    String?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+}
+
+// ============================================
+// 18. RECEITA CURSOS E TREINAMENTOS
+// ============================================
+model ReceitaCurso {
+  id                    String   @id @default(cuid())
+  cursoId               String
+  valorReceita          Float
+  dataEntrada           DateTime
+  contaBancariaId       String
+  metodoTransferenciaId String
+  projetoDirecionado    String?
+  eventoDirecionado     String?
+  observacoes           String?
+  arquivosReferencia    String?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+}
+
+// ============================================
+// 19. RECEITA DE PRODUTOS
+// ============================================
+model ReceitaProduto {
+  id                    String   @id @default(cuid())
+  produtoId             String
+  valorReceita          Float
+  dataEntrada           DateTime
+  contaBancariaId       String
+  metodoTransferenciaId String
+  projetoDirecionado    String?
+  eventoDirecionado     String?
+  observacoes           String?
+  arquivosReferencia    String?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+}
+
+// ============================================
+// 20. RECEITA DE SERVIÇOS
+// ============================================
+model ReceitaServico {
+  id                    String   @id @default(cuid())
+  servicoId             String
+  valorReceita          Float
+  dataEntrada           DateTime
+  contaBancariaId       String
+  metodoTransferenciaId String
+  projetoDirecionado    String?
+  eventoDirecionado     String?
+  observacoes           String?
+  arquivosReferencia    String?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+}
+
+// ============================================
+// 21. RECEITA DE EVENTOS
+// ============================================
+model ReceitaEvento {
+  id                    String   @id @default(cuid())
+  eventoId              String
+  valorReceita          Float
+  dataEntrada           DateTime
+  contaBancariaId       String
+  metodoTransferenciaId String
+  projetoDirecionado    String?
+  eventoDirecionado     String?
+  observacoes           String?
+  arquivosReferencia    String?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+}
+
+// ============================================
+// 22. OUTRAS RECEITAS
+// ============================================
+model OutraReceita {
+  id                    String   @id @default(cuid())
+  nomeContribuinte      String
+  telefone              String
+  telefoneFixo          String?
+  email                 String?
+  dataEntrada           DateTime
+  contaBancariaId       String
+  valorContribuicao     Float
+  metodoTransferenciaId String
+  projetoDirecionado    String?
+  eventoDirecionado     String?
+  descricaoReceita      String
+  observacoes           String?
+  arquivosReferencia    String?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+}
+
+// ============================================
+// 23. FUNCIONÁRIOS CLT
+// ============================================
+model FuncionarioCLT {
+  id                   String   @id @default(cuid())
+  nomeCompleto         String
+  dataNascimento       DateTime
+  cpf                  String   @unique
+  carteiraTrabalhista  String
+  dataContratacao      DateTime
+  auxilioTransporte    Boolean  @default(false)
+  auxilioAlimentacao   Boolean  @default(false)
+  planoSaude           Boolean  @default(false)
+  tipoPlanoSaude       String?
+  cargoId              String
+  funcaoId             String
+  salarioMensal        Float
+  outrosBeneficios     String?
+  observacoes          String?
+  arquivosReferencia   String?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+}
+
+// ============================================
+// 24. FUNCIONÁRIOS PJ
+// ============================================
+model FuncionarioPJ {
+  id                   String   @id @default(cuid())
+  nomeCompleto         String
+  nomeEmpresa          String
+  nomeFantasia         String
+  dataConstituicao     DateTime
+  cnpj                 String   @unique
+  dataContratacao      DateTime
+  cargoId              String
+  funcaoId             String
+  valorMedicaoMensal   Float?
+  observacoes          String?
+  arquivosReferencia   String?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+}
+
+// ============================================
+// 25. CARGO
+// ============================================
+model Cargo {
+  id        String   @id @default(cuid())
+  nome      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ============================================
+// 26. FUNÇÃO
+// ============================================
+model FuncaoEmprego {
+  id        String   @id @default(cuid())
+  nome      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ============================================
+// 27. PLANOS DE SAÚDE
+// ============================================
+model PlanoSaude {
+  id        String   @id @default(cuid())
+  nome      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ============================================
+// 28. CONTRATO DE LOCAÇÃO IMOBILIÁRIA
+// ============================================
+model ContratoLocacao {
+  id                        String   @id @default(cuid())
+  tipoImovelId              String
+  locadoParaId              String
+  cep                       String?
+  rua                       String
+  numero                    String
+  complemento               String?
+  bairro                    String
+  ufId                      String
+  cidadeId                  String
+  nomeLocador               String
+  dataInicio                DateTime
+  valorLocacao              Float
+  duracaoContrataMeses      Int
+  propositoLocacaoId        String
+  condicoesBenfeitoriaId    String
+  observacoes               String?
+  arquivosReferencia        String?
+  createdAt                 DateTime @default(now())
+  updatedAt                 DateTime @updatedAt
+}
+
+// ============================================
+// 29. TIPO DE IMÓVEL
+// ============================================
+model TipoImovel {
+  id        String   @id @default(cuid())
+  nome      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ============================================
+// 30. LOCADO PARA
+// ============================================
+model LocadoPara {
+  id        String   @id @default(cuid())
+  nome      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ============================================
+// 31. PROPÓSITO DE LOCAÇÃO
+// ============================================
+model ProposiloLocacao {
+  id        String   @id @default(cuid())
+  nome      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ============================================
+// 32. CONDIÇÕES DE BENFEITORIA
+// ============================================
+model CondicaoBenfeitoria {
+  id        String   @id @default(cuid())
+  nome      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ============================================
+// 33. CATEGORIAS DE FORNECEDORES
+// ============================================
+model CategoriaFornecedor {
+  id            String   @id @default(cuid())
+  nome          String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  subcategorias SubcategoriaFornecedor[]
+  fornecedores  Fornecedor[]
+}
+
+// ============================================
+// 34. SUBCATEGORIAS DE FORNECEDORES
+// ============================================
+model SubcategoriaFornecedor {
+  id          String   @id @default(cuid())
+  categoriaId String
+  nome        String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  categoria   CategoriaFornecedor @relation(fields: [categoriaId], references: [id])
+  fornecedores Fornecedor[]
+}
+
+// ============================================
+// 35. FORNECEDORES
+// ============================================
+model Fornecedor {
+  id              String   @id @default(cuid())
+  nome            String
+  categoriaId     String?
+  subcategoriaId  String?
+  endereco        String?
+  site            String?
+  telefone        String?
+  email           String?
+  observacoes     String?
+  arquivosRef     String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  categoria       CategoriaFornecedor?    @relation(fields: [categoriaId], references: [id])
+  subcategoria    SubcategoriaFornecedor? @relation(fields: [subcategoriaId], references: [id])
+}
+
+// ============================================
+// 36. TIPOS DE SERVIÇO DE CONSUMO
+// ============================================
+model TipoServicoConsumo {
+  id        String   @id @default(cuid())
+  nome      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ============================================
+// 37. DESPESA - CONTAS DE CONSUMO
+// ============================================
+model DespesaConsumo {
+  id                    String   @id @default(cuid())
+  fornecedorId          String
+  tipoServicoId         String
+  dataVencimento        DateTime
+  valorTitulo           Float
+  dataPagamento         DateTime
+  metodoTransferenciaId String
+  contaBancariaId       String?
+  projetoDirecionado    String?
+  eventoDirecionado     String?
+  observacoes           String?
+  arquivosReferencia    String?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+}
+
+// ============================================
+// 38. TIPOS DE SERVIÇO DIGITAL
+// ============================================
+model TipoServicoDigital {
+  id        String   @id @default(cuid())
+  nome      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ============================================
+// 39. DESPESA - SERVIÇOS DIGITAIS E PLATAFORMAS
+// ============================================
+model DespesaDigital {
+  id                    String   @id @default(cuid())
+  fornecedorId          String
+  tipoServicoId         String
+  dataVencimento        DateTime
+  valorTitulo           Float
+  dataPagamento         DateTime
+  metodoTransferenciaId String
+  contaBancariaId       String?
+  projetoDirecionado    String?
+  eventoDirecionado     String?
+  observacoes           String?
+  arquivosReferencia    String?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+}
+
+// ============================================
+// 40. TIPOS DE SERVIÇO DE MANUTENÇÃO
+// ============================================
+model TipoServicoManutencao {
+  id        String   @id @default(cuid())
+  nome      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ============================================
+// 41. DESPESA - CONSERVAÇÃO E ZELADORIA
+// ============================================
+model DespesaConservacao {
+  id                    String   @id @default(cuid())
+  nomeFornecedor        String
+  tipoServicoId         String
+  dataVencimento        DateTime
+  valorTitulo           Float
+  dataPagamento         DateTime
+  metodoTransferenciaId String
+  contaBancariaId       String?
+  observacoes           String?
+  arquivosReferencia    String?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+}
+
+// ============================================
+// 42. ITENS ALUGADOS
+// ============================================
+model ItemAlugado {
+  id        String   @id @default(cuid())
+  nome      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ============================================
+// 43. DESPESA - LOCAÇÃO DE SERVIÇOS & EQUIPAMENTOS
+// ============================================
+model DespesaLocacao {
+  id                    String   @id @default(cuid())
+  fornecedorId          String
+  itemAlugadoId         String
+  dataPagamento         DateTime
+  valorLocacao          Float
+  metodoTransferenciaId String
+  contaBancariaId       String?
+  projetoDirecionado    String?
+  eventoDirecionado     String?
+  observacoes           String?
+  arquivosReferencia    String?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+}
+
+// ============================================
+// 44. SERVIÇOS PRESTADOS (EXTERNOS)
+// ============================================
+model ServicoPrestado {
+  id        String   @id @default(cuid())
+  nome      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ============================================
+// 45. DESPESA - SERVIÇOS EXTERNOS
+// ============================================
+model DespesaServicoExterno {
+  id                    String   @id @default(cuid())
+  fornecedorId          String
+  servicoPrestadoId     String
+  dataPagamento         DateTime
+  valor                 Float
+  contaBancariaId       String?
+  metodoTransferenciaId String
+  projetoDirecionado    String?
+  eventoDirecionado     String?
+  observacoes           String?
+  arquivosReferencia    String?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+}
+
+// ============================================
+// 46. ITENS COPA E COZINHA
+// ============================================
+model ItemCopaCozinha {
+  id        String   @id @default(cuid())
+  nome      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ============================================
+// 47. DESPESA - COPA E COZINHA
+// ============================================
+model DespesaCopaCozinha {
+  id                    String   @id @default(cuid())
+  fornecedorId          String
+  itemCopaCozinhaId     String
+  dataPagamento         DateTime
+  valorPagamento        Float
+  metodoTransferenciaId String
+  contaBancariaId       String?
+  projetoDirecionado    String?
+  eventoDirecionado     String?
+  observacoes           String?
+  arquivosReferencia    String?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+}
+
+// ============================================
+// 48. CONSOLIDAÇÃO DE PROJETOS
+// ============================================
+model ConsolidacaoProjeto {
+  id                       String   @id @default(cuid())
+  projetoId                String   @unique
+  dataConclusaoReal        DateTime
+  fatorDesvioTempo         Int?
+  orcamentoEstimado        Float?
+  orcamentoRealizado       Float?
+  saldoOrcamento           Float?
+  consideracoes            String?
+  pendencias               String?
+  acoesPositivas           String?
+  licoesAprendidas         String?
+  nomeOperador             String?
+  cpfOperador              String?
+  metodoAjuste             String?
+  valorAjuste              Float?
+  contaReceptoraId         String?
+  dataLimiteAjuste         DateTime?
+  arquivosReferencia       String?
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+
+  projeto                  ProjetoFilantropia @relation(fields: [projetoId], references: [id])
+}
+
+// ============================================
+// 49. CONSOLIDAÇÃO DE EVENTOS
+// ============================================
+model ConsolidacaoEvento {
+  id                       String   @id @default(cuid())
+  eventoId                 String   @unique
+  dataConclusaoReal        DateTime
+  orcamentoEstimado        Float?
+  orcamentoRealizado       Float?
+  saldoOrcamento           Float?
+  consideracoes            String?
+  pendencias               String?
+  acoesPositivas           String?
+  licoesAprendidas         String?
+  projetoVinculado         String?
+  nomeOperador             String?
+  cpfOperador              String?
+  metodoAjuste             String?
+  valorAjuste              Float?
+  contaReceptoraId         String?
+  dataLimiteAjuste         DateTime?
+  arquivosReferencia       String?
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+
+  evento                   Evento @relation(fields: [eventoId], references: [id])
+}
+
+// ============================================
+// 50. USUÁRIOS DO SISTEMA
+// ============================================
+model Usuario {
+  id                 String   @id @default(cuid())
+  nome               String
+  email              String   @unique
+  senhaHash          String
+  ativo              Boolean  @default(true)
+  role               String   @default("user") // "admin" | "user"
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  codigos            CodigoOTP[]
+  tokensReset        TokenResetSenha[]
+}
+
+// ============================================
+// 51. CÓDIGOS OTP (2FA via e-mail)
+// ============================================
+model CodigoOTP {
+  id        String   @id @default(cuid())
+  usuarioId String
+  codigo    String
+  usado     Boolean  @default(false)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  usuario   Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+}
+
+// ============================================
+// 52. TOKENS DE RESET DE SENHA
+// ============================================
+model TokenResetSenha {
+  id        String   @id @default(cuid())
+  usuarioId String
+  token     String   @unique
+  usado     Boolean  @default(false)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  usuario   Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+}
+
+// ============================================
+// 53. BIBLIOTECA DE DOCUMENTOS AMO
+// ============================================
+model CategoriaDocumento {
+  id          String        @id @default(cuid())
+  nome        String        @unique
+  descricao   String?
+  cor         String?       @default("#4B5563")
+  icone       String?       @default("FileText")
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  documentos  DocumentoAMO[]
+}
+
+model DocumentoAMO {
+  id                  String              @id @default(cuid())
+  titulo              String
+  descricao           String?
+  categoriaId         String
+  tags                String?             // JSON array of strings
+  nomeArquivo         String
+  tipoArquivo         String              // MIME type
+  tamanhoArquivo      Int?                // bytes
+  urlArquivo          String              // Supabase Storage URL
+  pathArquivo         String?             // Supabase Storage path
+  versao              String?             @default("1.0")
+  statusDocumento     String?             @default("ativo") // ativo, arquivado, em_revisao, obsoleto
+  dataVigencia        DateTime?           // validade do documento
+  dataRevisao         DateTime?           // próxima revisão
+  responsavel         String?
+  acessoRestrito      Boolean             @default(false)
+  observacoes         String?
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
+
+  categoria   CategoriaDocumento @relation(fields: [categoriaId], references: [id])
+}
+
+// ============================================
+// 65. FUNÇÃO/CARGO DO VOLUNTÁRIO
+// ============================================
+model FuncaoCargoVoluntario {
+  id        String   @id @default(cuid())
+  nome      String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
