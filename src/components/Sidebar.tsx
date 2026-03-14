@@ -18,6 +18,7 @@ interface NavItem {
   href?: string
   children?: NavItem[]
   newTab?: boolean
+  adminOnly?: boolean
 }
 
 const navItems: NavItem[] = [
@@ -101,16 +102,26 @@ const navItems: NavItem[] = [
   { label: 'Tabelas Auxiliares', icon: Settings, href: '/cadastros/auxiliares' },
   { label: 'Biblioteca de Documentos', icon: FolderOpen, href: '/cadastros/documentos' },
   { label: 'Relatórios com IA', icon: Sparkles, href: '/relatorio-ia', newTab: true },
-  { label: 'Configurações', icon: Settings, href: '/configuracoes' },
-  { label: 'Log de Auditoria', icon: FileText, href: '/admin/audit-log' },
-  { label: 'Usuários do Sistema', icon: Users, href: '/admin/usuarios' },
+  {
+    label: 'Configurações', icon: Settings,
+    children: [
+      { label: 'Preferências', icon: Settings, href: '/configuracoes' },
+      { label: 'Log de Auditoria', icon: FileText, href: '/admin/audit-log', adminOnly: true },
+      { label: 'Usuários do Sistema', icon: Users, href: '/admin/usuarios', adminOnly: true },
+    ]
+  },
 ]
 
-function NavItemComponent({ item, depth = 0 }: { item: NavItem; depth?: number }) {
+function NavItemComponent({ item, depth = 0, isAdmin = false }: { item: NavItem; depth?: number; isAdmin?: boolean }) {
   const pathname = usePathname()
-  const hasChildren = item.children && item.children.length > 0
+
+  // Hide admin-only items from non-admins
+  if (item.adminOnly && !isAdmin) return null
+
+  const visibleChildren = item.children?.filter(c => !c.adminOnly || isAdmin)
+  const hasChildren = visibleChildren && visibleChildren.length > 0
   const isActive = item.href === pathname
-  const isParentActive = hasChildren && item.children?.some(c => c.href === pathname)
+  const isParentActive = hasChildren && visibleChildren?.some(c => c.href === pathname)
   const [open, setOpen] = useState(() => isParentActive ?? false)
 
   if (hasChildren) {
@@ -129,8 +140,8 @@ function NavItemComponent({ item, depth = 0 }: { item: NavItem; depth?: number }
         </button>
         {open && (
           <div className="ml-3 mt-1 space-y-0.5 border-l-2 border-cream-300 pl-3">
-            {item.children!.map(child => (
-              <NavItemComponent key={child.href || child.label} item={child} depth={depth + 1} />
+            {visibleChildren!.map(child => (
+              <NavItemComponent key={child.href || child.label} item={child} depth={depth + 1} isAdmin={isAdmin} />
             ))}
           </div>
         )}
@@ -153,11 +164,20 @@ function NavItemComponent({ item, depth = 0 }: { item: NavItem; depth?: number }
 export default function Sidebar() {
   const { prefs } = usePreferences()
   const [collapsed, setCollapsed] = useState(false)
+  const [isAdmin, setIsAdmin] = useState(false)
 
   // Sync with preference on mount
   useEffect(() => {
     setCollapsed(!prefs.sidebarExpanded)
   }, [prefs.sidebarExpanded])
+
+  // Fetch user role
+  useEffect(() => {
+    fetch('/api/auth/me')
+      .then(r => r.ok ? r.json() : null)
+      .then(data => { if (data?.usuario?.role === 'admin') setIsAdmin(true) })
+      .catch(() => {})
+  }, [])
 
   return (
     <aside className={`${collapsed ? 'w-16' : 'w-72'} bg-white border-r border-cream-200 
@@ -182,7 +202,7 @@ export default function Sidebar() {
       {!collapsed && (
         <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
           {navItems.map(item => (
-            <NavItemComponent key={item.href || item.label} item={item} />
+            <NavItemComponent key={item.href || item.label} item={item} isAdmin={isAdmin} />
           ))}
         </nav>
       )}
