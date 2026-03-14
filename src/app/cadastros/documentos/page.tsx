@@ -1,8 +1,9 @@
 'use client'
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { Plus, Upload, Search, FileText, File, Image, FileArchive, FileSpreadsheet, Download, Eye, Pencil, Trash2, Tag, Lock, Unlock, RefreshCw, FolderOpen, X, Filter } from 'lucide-react'
+import { Plus, Upload, Search, FileText, File, Image, FileArchive, FileSpreadsheet, Download, Eye, Pencil, Trash2, Tag, Lock, Unlock, RefreshCw, FolderOpen, X, Filter, LayoutGrid, List } from 'lucide-react'
 import Modal from '@/components/ui/Modal'
 import DateInput from '@/components/ui/DateInput'
+import { usePreferences } from '@/lib/preferences'
 
 interface Cat { id: string; nome: string; cor: string; icone: string }
 interface Doc {
@@ -50,6 +51,10 @@ function isExpired(d?: string) {
 }
 
 export default function Page() {
+  const { prefs, updatePrefs } = usePreferences()
+  const viewMode = prefs.documentsView || 'cards'
+  const toggleView = () => updatePrefs({ documentsView: viewMode === 'cards' ? 'list' : 'cards' })
+
   const [docs, setDocs] = useState<Doc[]>([])
   const [cats, setCats] = useState<Cat[]>([])
   const [isAdmin, setIsAdmin] = useState(false)
@@ -267,6 +272,16 @@ export default function Page() {
               <X className="w-3 h-3" /> Limpar filtros
             </button>
           )}
+          <div className="flex gap-0.5 bg-gray-100 rounded-lg p-0.5 ml-auto">
+            <button onClick={() => updatePrefs({ documentsView: 'cards' })} title="Visualização em Cards"
+              className={`p-1.5 rounded-md transition-all ${viewMode === 'cards' ? 'bg-white shadow-sm text-blue-600' : 'text-gray-400 hover:text-gray-600'}`}>
+              <LayoutGrid className="w-4 h-4" />
+            </button>
+            <button onClick={() => updatePrefs({ documentsView: 'list' })} title="Visualização em Lista"
+              className={`p-1.5 rounded-md transition-all ${viewMode === 'list' ? 'bg-white shadow-sm text-blue-600' : 'text-gray-400 hover:text-gray-600'}`}>
+              <List className="w-4 h-4" />
+            </button>
+          </div>
         </div>
       </div>
 
@@ -291,7 +306,73 @@ export default function Page() {
             <p className="text-navy-400 font-medium">Nenhum documento encontrado</p>
             <p className="text-sm text-navy-300 mt-1">{search || filterCat || filterExpiry ? 'Tente ajustar os filtros' : 'Adicione o primeiro documento clicando em "Adicionar Documento"'}</p>
           </div>
+        ) : viewMode === 'list' ? (
+          /* ── LIST VIEW ── */
+          <div className="card overflow-hidden p-0">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-navy-700 text-white text-xs">
+                  <th className="px-4 py-3 text-left">Documento</th>
+                  <th className="px-4 py-3 text-left">Categoria</th>
+                  <th className="px-4 py-3 text-left">Responsável</th>
+                  <th className="px-4 py-3 text-left">Vigência</th>
+                  <th className="px-4 py-3 text-left">Tamanho</th>
+                  <th className="px-4 py-3 text-center">Ações</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map(doc => {
+                  const expired = isExpired(doc.dataVigencia)
+                  const expiring = isExpiringSoon(doc.dataVigencia)
+                  return (
+                    <tr key={doc.id} className="border-b border-cream-100 hover:bg-cream-50 transition-colors group">
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-3">
+                          {fileIcon(doc.tipoArquivo)}
+                          <div className="min-w-0">
+                            <p className="font-medium text-navy-800 text-sm truncate max-w-xs">{doc.titulo}</p>
+                            <p className="text-[10px] text-navy-300 truncate max-w-xs">{doc.nomeArquivo}</p>
+                          </div>
+                          {doc.acessoRestrito && <Lock className="w-3 h-3 text-purple-500 flex-shrink-0" />}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className="text-xs font-medium px-2 py-0.5 rounded-full text-white" style={{ backgroundColor: doc.categoria?.cor || '#666' }}>
+                          {doc.categoria?.nome || '-'}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-xs text-navy-500">{doc.responsavel || '-'}</td>
+                      <td className="px-4 py-3">
+                        {doc.dataVigencia ? (
+                          <span className={`text-xs px-2 py-0.5 rounded-full ${expired ? 'bg-red-100 text-red-700' : expiring ? 'bg-amber-100 text-amber-700' : 'bg-green-100 text-green-700'}`}>
+                            {expired ? '🔴 ' : expiring ? '⚠️ ' : '✅ '}{fmtDate(doc.dataVigencia)}
+                          </span>
+                        ) : (
+                          <span className="text-xs text-slate-400">Sem vencimento</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-xs text-navy-400">{fmtSize(doc.tamanhoArquivo)}</td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center justify-center gap-1">
+                          <a href={doc.urlArquivo} target="_blank" rel="noopener noreferrer" className="p-1.5 rounded-lg hover:bg-cream-100 text-navy-400 hover:text-navy-700" title="Visualizar">
+                            <Eye className="w-4 h-4" />
+                          </a>
+                          <button onClick={() => openEdit(doc)} className="p-1.5 rounded-lg hover:bg-cream-100 text-navy-400 hover:text-navy-700" title="Editar">
+                            <Pencil className="w-4 h-4" />
+                          </button>
+                          <button onClick={() => setDeleteConfirm(doc)} className="p-1.5 rounded-lg hover:bg-red-50 text-navy-400 hover:text-red-600" title="Excluir">
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
         ) : (
+          /* ── CARDS VIEW ── */
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
             {filtered.map(doc => {
               const expired = isExpired(doc.dataVigencia)

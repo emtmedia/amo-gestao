@@ -1,7 +1,7 @@
 'use client'
 
 import { usePreferences } from '@/lib/preferences'
-import { Settings, ScanLine, Palette, PanelLeftOpen, Monitor, Moon, Sun, Check } from 'lucide-react'
+import { Settings, ScanLine, Palette, PanelLeftOpen, Monitor, Moon, Sun, Check, LayoutGrid, List } from 'lucide-react'
 import { useState, useEffect } from 'react'
 
 export default function ConfiguracoesPage() {
@@ -211,6 +211,40 @@ export default function ConfiguracoesPage() {
                   prefs.darkMode ? 'translate-x-5' : 'translate-x-0'
                 }`} />
               </button>
+            </div>
+
+            {/* Documents View */}
+            <div className="flex items-center justify-between p-4 rounded-xl border border-gray-200 dark:border-gray-600">
+              <div className="flex items-center gap-3">
+                {prefs.documentsView === 'cards'
+                  ? <LayoutGrid className="w-5 h-5 text-blue-500" />
+                  : <List className="w-5 h-5 text-blue-500" />
+                }
+                <div>
+                  <p className="font-medium text-sm text-navy-800 dark:text-gray-100">Visualização da Biblioteca de Documentos</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Exibir documentos em cards ou lista.</p>
+                </div>
+              </div>
+              <div className="flex gap-1 bg-gray-100 dark:bg-gray-700 rounded-lg p-0.5">
+                <button
+                  type="button"
+                  onClick={() => { updatePrefs({ documentsView: 'cards' }); save() }}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
+                    prefs.documentsView === 'cards' ? 'bg-white dark:bg-gray-600 shadow-sm text-blue-700 dark:text-blue-300' : 'text-gray-500 dark:text-gray-400'
+                  }`}
+                >
+                  <LayoutGrid className="w-3.5 h-3.5" /> Cards
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { updatePrefs({ documentsView: 'list' }); save() }}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
+                    prefs.documentsView === 'list' ? 'bg-white dark:bg-gray-600 shadow-sm text-blue-700 dark:text-blue-300' : 'text-gray-500 dark:text-gray-400'
+                  }`}
+                >
+                  <List className="w-3.5 h-3.5" /> Lista
+                </button>
+              </div>
             </div>
           </div>
         </div>

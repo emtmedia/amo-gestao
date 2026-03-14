@@ -12,12 +12,14 @@ export interface ScannerSettings {
 export interface UserPreferences {
   sidebarExpanded: boolean
   darkMode: boolean
+  documentsView: 'cards' | 'list'
   scanner: ScannerSettings
 }
 
 const defaultPrefs: UserPreferences = {
   sidebarExpanded: true,
   darkMode: false,
+  documentsView: 'cards',
   scanner: {
     colorMode: 'color',
     resolution: 200,
