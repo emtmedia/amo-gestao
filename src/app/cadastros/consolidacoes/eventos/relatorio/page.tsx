@@ -5,7 +5,7 @@ import { useSearchParams } from 'next/navigation'
 interface ConsolData {
   id: string; eventoId: string; projetoId: string; dataConclusaoReal: string
   consideracoes: string; pendencias: string; acoesPositivas: string; licoesAprendidas: string
-  saldoPositivo: boolean; nomeOperador: string; cpfOperador: string
+  saldoOrcamento: number | null; nomeOperador: string; cpfOperador: string
   metodoAjuste: string; valorAjuste: number; contaReceptoraId: string; dataLimiteAjuste: string
   arquivosReferencia: string; createdAt: string
 }
@@ -66,6 +66,7 @@ function RelatorioContent() {
 
   const conta = contas.find(c => c.id === consol.contaReceptoraId)
   const metodo = metodos.find(m => m.id === consol.metodoAjuste)
+  const saldoPositivo = consol.saldoOrcamento === null || consol.saldoOrcamento === undefined ? true : consol.saldoOrcamento >= 0
 
   return (
     <div className="min-h-screen bg-white p-8 max-w-4xl mx-auto print:p-4">
@@ -175,13 +176,13 @@ function RelatorioContent() {
           <span className="w-6 h-6 rounded-full bg-navy-700 text-white text-xs flex items-center justify-center font-bold">III</span>
           Financeiro do Evento
         </h3>
-        <div className={`rounded-xl p-5 border-2 ${consol.saldoPositivo ? 'bg-green-50 border-green-300' : 'bg-red-50 border-red-300'}`}>
+        <div className={`rounded-xl p-5 border-2 ${saldoPositivo ? 'bg-green-50 border-green-300' : 'bg-red-50 border-red-300'}`}>
           <div className="flex items-center gap-3 mb-4">
-            <span className={`text-2xl font-bold ${consol.saldoPositivo ? 'text-green-700' : 'text-red-700'}`}>
-              {consol.saldoPositivo ? '✅ Saldo Positivo' : '⚠️ Saldo Negativo — Ajuste Necessário'}
+            <span className={`text-2xl font-bold ${saldoPositivo ? 'text-green-700' : 'text-red-700'}`}>
+              {saldoPositivo ? '✅ Saldo Positivo' : '⚠️ Saldo Negativo — Ajuste Necessário'}
             </span>
           </div>
-          {!consol.saldoPositivo && (
+          {!saldoPositivo && (
             <div className="grid grid-cols-2 gap-4 mt-3">
               <div>
                 <p className="text-xs text-gray-500 uppercase tracking-wide">Operador/Tesoureiro do Ajuste</p>
