@@ -291,8 +291,8 @@ export default function ScannerCapture({ open, onClose, onCapture }: ScannerCapt
             </div>
           )}
 
-          {status === 'ready' && (
-            <div className="space-y-3">
+          {/* Video always in DOM so videoRef is available when startCamera runs */}
+          <div className={status === 'ready' ? 'space-y-3' : 'hidden'}>
               <div className="relative bg-black rounded-xl overflow-hidden">
                 <video
                   ref={videoRef}
@@ -329,7 +329,6 @@ export default function ScannerCapture({ open, onClose, onCapture }: ScannerCapt
                 </div>
               )}
             </div>
-          )}
 
           {status === 'preview' && previewUrl && (
             <div className="space-y-3">
