@@ -4,8 +4,19 @@ import prisma from '@/lib/prisma'
 
 export async function GET() {
   try {
-    const items = await prisma.projetoFilantropia.findMany({ orderBy: { createdAt: 'desc' } })
-    return NextResponse.json({ success: true, data: items })
+    const items = await prisma.projetoFilantropia.findMany({
+      orderBy: { createdAt: 'desc' },
+      include: { consolidacao: { select: { id: true, saldoOrcamento: true } } }
+    })
+    const withStatus = items.map(p => ({
+      ...p,
+      status: !p.consolidacao
+        ? 'em_curso'
+        : (p.consolidacao.saldoOrcamento ?? 0) >= 0
+        ? 'encerrado_consolidado'
+        : 'encerrado_pendente',
+    }))
+    return NextResponse.json({ success: true, data: withStatus })
   } catch (error) {
     console.error(error)
     return NextResponse.json({ success: false, error: 'Erro ao buscar registros' }, { status: 500 })

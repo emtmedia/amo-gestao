@@ -19,6 +19,7 @@ interface DataTableProps<T extends object = Record<string, unknown>> {
   searchable?: boolean
   searchKeys?: string[]
   perPage?: number
+  rowClassName?: (row: T) => string
 }
 
 export default function DataTable<T extends object>({
@@ -29,6 +30,7 @@ export default function DataTable<T extends object>({
   searchable = true,
   searchKeys = [],
   perPage = 10,
+  rowClassName,
 }: DataTableProps<T>) {
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(1)
@@ -98,7 +100,7 @@ export default function DataTable<T extends object>({
               </tr>
             ) : (
               paginated.map(row => (
-                <tr key={String((row as Record<string, unknown>).id)} className="hover:bg-cream-50/60 transition-colors group">
+                <tr key={String((row as Record<string, unknown>).id)} className={`hover:bg-cream-50/60 transition-colors group${rowClassName ? ` ${rowClassName(row)}` : ''}`}>
                   {columns.map(col => (
                     <td key={String(col.key)}
                       className="px-3 py-2 text-navy-700 max-w-[180px] truncate text-xs">

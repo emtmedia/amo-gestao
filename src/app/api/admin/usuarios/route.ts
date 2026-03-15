@@ -6,7 +6,7 @@ const prisma = new PrismaClient()
 
 export async function GET() {
   const session = await getSession()
-  if (!session || session.role !== 'admin') {
+  if (!session || !['admin', 'superadmin'].includes(session.role)) {
     return NextResponse.json({ error: 'Acesso negado.' }, { status: 403 })
   }
   const usuarios = await prisma.usuario.findMany({

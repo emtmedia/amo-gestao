@@ -8,14 +8,35 @@ import CurrencyInput, { parseBRL } from '@/components/ui/CurrencyInput'
 import FileUpload from '@/components/ui/FileUpload'
 import DateInput from '@/components/ui/DateInput'
 import PhoneInput from '@/components/ui/PhoneInput'
+import PasswordConfirmModal from '@/components/ui/PasswordConfirmModal'
 
-interface Projeto { id: string; nome: string; responsavel: string; dataInicio: string; dataEncerramento: string; orcamentoEstimado: number; paisRealizacao: string; estadoRealizacao?: string; createdAt: string }
+interface Projeto { id: string; nome: string; responsavel: string; dataInicio: string; dataEncerramento: string; orcamentoEstimado: number; paisRealizacao: string; estadoRealizacao?: string; createdAt: string; status?: string }
 interface Departamento { id: string; nome: string }
 interface Conta { id: string; tipo: string; banco: string; agencia: string; numeroConta: string }
 interface UF { id: string; codigo: string; nome: string }
 interface Cidade { id: string; nome: string; ufId: string }
 
 const emptyForm = { nome: '', dataInicio: '', dataEncerramento: '', responsavel: '', emailResponsavel: '', telefoneResponsavel: '', orcamentoEstimado: '', contaBancariaVinculada1: '', contaBancariaVinculada2: '', paisRealizacao: 'Brasil', ufId: '', cidadeId: '', estadoRealizacao: '', cidadeRealizacao: '', numeroVoluntarios: '', departamentoId: '', comentarios: '', arquivosReferencia: '' }
+
+type StatusFilter = 'todos' | 'em_curso' | 'encerrado_consolidado' | 'encerrado_pendente'
+
+const statusLabel = (status?: string) => {
+  if (status === 'encerrado_consolidado') return 'Encerrado & Consolidado'
+  if (status === 'encerrado_pendente') return 'Encerrado & Pendente $'
+  return 'Em Curso'
+}
+
+const statusColor = (status?: string) => {
+  if (status === 'encerrado_consolidado') return 'bg-green-100 text-green-800 border border-green-200'
+  if (status === 'encerrado_pendente') return 'bg-amber-100 text-amber-800 border border-amber-200'
+  return 'bg-blue-100 text-blue-800 border border-blue-200'
+}
+
+const rowClassName = (row: Projeto) => {
+  if (row.status === 'encerrado_consolidado') return 'bg-green-50/50'
+  if (row.status === 'encerrado_pendente') return 'bg-amber-50/50'
+  return ''
+}
 
 export default function ProjetosPage() {
   const [data, setData] = useState<Projeto[]>([])
@@ -33,6 +54,10 @@ export default function ProjetosPage() {
   const [blockError, setBlockError] = useState<string | null>(null)
   const [toast, setToast] = useState<{ msg: string; type: 'success' | 'error' } | null>(null)
   const [modalAlert, setModalAlert] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
+  const [userRole, setUserRole] = useState<string>('user')
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('todos')
+  const [pendingEdit, setPendingEdit] = useState<Projeto | null>(null)
+  const [showPasswordModal, setShowPasswordModal] = useState(false)
 
   const showToast = (msg: string, type: 'success' | 'error' = 'success') => {
     setToast({ msg, type }); setTimeout(() => setToast(null), 3500)
@@ -58,12 +83,19 @@ export default function ProjetosPage() {
   const fetchData = useCallback(async () => {
     setLoading(true)
     try {
-      const [rp, rd, rc, ruf] = await Promise.all([fetch('/api/projetos'), fetch('/api/departamentos'), fetch('/api/contas-bancarias'), fetch('/api/uf')])
-      const [jp, jd, jc, juf] = await Promise.all([rp.json(), rd.json(), rc.json(), ruf.json()])
+      const [rp, rd, rc, ruf, rme] = await Promise.all([
+        fetch('/api/projetos'),
+        fetch('/api/departamentos'),
+        fetch('/api/contas-bancarias'),
+        fetch('/api/uf'),
+        fetch('/api/auth/me'),
+      ])
+      const [jp, jd, jc, juf, jme] = await Promise.all([rp.json(), rd.json(), rc.json(), ruf.json(), rme.json()])
       if (jp.success) setData(jp.data)
       if (jd.success) setDepartamentos(jd.data)
       if (jc.success) setContas(jc.data)
       if (juf.success) setUfs(juf.data.sort((a: UF, b: UF) => a.codigo.localeCompare(b.codigo)))
+      if (jme.usuario) setUserRole(jme.usuario.role)
     } finally { setLoading(false) }
   }, [])
   useEffect(() => { fetchData() }, [fetchData])
@@ -72,12 +104,28 @@ export default function ProjetosPage() {
   const fmtMoney = (v: number) => v ? `R$ ${Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : '-'
 
   const openCreate = () => { setEditing(null); setForm(emptyForm); setCidades([]); setModalAlert(null); setModalOpen(true) }
-  const openEdit = (row: Record<string, unknown>) => {
-    setEditing(row as unknown as Projeto)
-    const ufId = String(row.ufId || '')
-    setForm({ nome: String(row.nome||''), dataInicio: row.dataInicio ? String(row.dataInicio).slice(0,10) : '', dataEncerramento: row.dataEncerramento ? String(row.dataEncerramento).slice(0,10) : '', responsavel: String(row.responsavel||''), emailResponsavel: String(row.emailResponsavel||''), telefoneResponsavel: String(row.telefoneResponsavel||''), orcamentoEstimado: String(row.orcamentoEstimado||''), contaBancariaVinculada1: String(row.contaBancariaVinculada1||''), contaBancariaVinculada2: String(row.contaBancariaVinculada2||''), paisRealizacao: String(row.paisRealizacao||'Brasil'), ufId, cidadeId: String(row.cidadeId||''), estadoRealizacao: String(row.estadoRealizacao||''), cidadeRealizacao: String(row.cidadeRealizacao||''), numeroVoluntarios: String(row.numeroVoluntarios||''), departamentoId: String(row.departamentoId||''), comentarios: String(row.comentarios||''), arquivosReferencia: String(row.arquivosReferencia||'') })
+
+  const doEdit = (row: Projeto) => {
+    setEditing(row)
+    const r = row as unknown as Record<string, unknown>
+    const ufId = String(r.ufId || '')
+    setForm({ nome: String(r.nome||''), dataInicio: r.dataInicio ? String(r.dataInicio).slice(0,10) : '', dataEncerramento: r.dataEncerramento ? String(r.dataEncerramento).slice(0,10) : '', responsavel: String(r.responsavel||''), emailResponsavel: String(r.emailResponsavel||''), telefoneResponsavel: String(r.telefoneResponsavel||''), orcamentoEstimado: String(r.orcamentoEstimado||''), contaBancariaVinculada1: String(r.contaBancariaVinculada1||''), contaBancariaVinculada2: String(r.contaBancariaVinculada2||''), paisRealizacao: String(r.paisRealizacao||'Brasil'), ufId, cidadeId: String(r.cidadeId||''), estadoRealizacao: String(r.estadoRealizacao||''), cidadeRealizacao: String(r.cidadeRealizacao||''), numeroVoluntarios: String(r.numeroVoluntarios||''), departamentoId: String(r.departamentoId||''), comentarios: String(r.comentarios||''), arquivosReferencia: String(r.arquivosReferencia||'') })
     if (ufId) fetchCidades(ufId)
     setModalOpen(true)
+  }
+
+  const openEdit = (row: Record<string, unknown>) => {
+    const projeto = row as unknown as Projeto
+    if (projeto.status === 'encerrado_consolidado') {
+      if (userRole !== 'superadmin') {
+        showToast('Apenas o SUPERADMIN pode editar projetos consolidados', 'error')
+        return
+      }
+      setPendingEdit(projeto)
+      setShowPasswordModal(true)
+      return
+    }
+    doEdit(projeto)
   }
 
   const handleSave = async () => {
@@ -105,6 +153,15 @@ export default function ProjetosPage() {
   )
   const contaLabel = (c: Conta) => `${c.tipo} | Ag ${c.agencia} | Cta ${c.numeroConta} - ${c.banco}`
 
+  const filterChips: { key: StatusFilter; label: string }[] = [
+    { key: 'todos', label: 'Todos' },
+    { key: 'em_curso', label: 'Em Curso' },
+    { key: 'encerrado_consolidado', label: 'Encerrado & Consolidado' },
+    { key: 'encerrado_pendente', label: 'Encerrado & Pendente $' },
+  ]
+
+  const filteredData = statusFilter === 'todos' ? data : data.filter(p => p.status === statusFilter)
+
   return (
     <div>
       {toast && <div className={`fixed top-4 right-4 z-[9999] px-4 py-3 rounded-xl shadow-lg text-sm font-medium ${toast.type === 'success' ? 'bg-green-50 text-green-800 border border-green-200' : 'bg-red-50 text-red-800 border border-red-200'}`}>{toast.msg}</div>}
@@ -115,13 +172,49 @@ export default function ProjetosPage() {
         </div>
         <button onClick={openCreate} className="btn-primary"><Plus className="w-4 h-4" /> Novo Projeto</button>
       </div>
+
+      {/* Filter chips */}
+      <div className="flex gap-2 flex-wrap mb-4">
+        {filterChips.map(chip => (
+          <button
+            key={chip.key}
+            onClick={() => setStatusFilter(chip.key)}
+            className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${statusFilter === chip.key ? 'bg-navy-700 text-white border-navy-700' : 'bg-white text-navy-600 border-cream-300 hover:bg-cream-50'}`}
+          >
+            {chip.label}
+          </button>
+        ))}
+      </div>
+
       <div className="card">
         {loading ? <div className="text-center py-8 text-navy-400">Carregando...</div> : (
-          <DataTable data={data} columns={[{ key: 'nome', label: 'Projeto' }, { key: 'responsavel', label: 'Responsável' }, { key: 'telefoneResponsavel', label: 'Telefone' }, { key: 'dataInicio', label: 'Início', render: (v) => fmtDate(String(v)) }, { key: 'dataEncerramento', label: 'Encerramento', render: (v) => fmtDate(String(v)) }, { key: 'orcamentoEstimado', label: 'Orçamento', render: (v) => fmtMoney(Number(v)) }, { key: 'estadoRealizacao', label: 'UF' }, { key: 'cidadeRealizacao', label: 'Cidade' }, { key: 'voluntariosEstimados', label: 'Voluntários', render: v => v ? String(v) : '—' }]} onEdit={openEdit} onDelete={(row) => setDeleteConfirm(String(row.id))} searchKeys={['nome', 'responsavel']} />
+          <DataTable
+            data={filteredData}
+            columns={[
+              { key: 'nome', label: 'Projeto' },
+              { key: 'responsavel', label: 'Responsável' },
+              { key: 'telefoneResponsavel', label: 'Telefone' },
+              { key: 'dataInicio', label: 'Início', render: (v) => fmtDate(String(v)) },
+              { key: 'dataEncerramento', label: 'Encerramento', render: (v) => fmtDate(String(v)) },
+              { key: 'orcamentoEstimado', label: 'Orçamento', render: (v) => fmtMoney(Number(v)) },
+              { key: 'estadoRealizacao', label: 'UF' },
+              { key: 'cidadeRealizacao', label: 'Cidade' },
+              { key: 'voluntariosEstimados', label: 'Voluntários', render: v => v ? String(v) : '—' },
+              { key: 'status', label: 'Status', render: (v) => (
+                <span className={`inline-flex text-xs px-2 py-0.5 rounded-full font-medium whitespace-nowrap ${statusColor(String(v))}`}>
+                  {statusLabel(String(v))}
+                </span>
+              )},
+            ]}
+            onEdit={openEdit}
+            onDelete={(row) => setDeleteConfirm(String(row.id))}
+            searchKeys={['nome', 'responsavel']}
+            rowClassName={rowClassName}
+          />
         )}
       </div>
-      <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} title={editing ? 'Editar Projeto' : 'Novo Projeto de Filantropia'} size="xl"
-        alert={modalAlert}>
+
+      <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} title={editing ? 'Editar Projeto' : 'Novo Projeto de Filantropia'} size="xl" alert={modalAlert}>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="md:col-span-2">{inp('nome', 'Nome do Projeto', true)}</div>
           <DateInput label="Data de Início" required value={form.dataInicio} onChange={v=>setForm(p=>({...p,dataInicio:v}))}/>
@@ -186,6 +279,7 @@ export default function ProjetosPage() {
           <button onClick={handleSave} disabled={saving} className="btn-primary">{saving ? 'Salvando...' : editing ? 'Atualizar' : 'Criar Projeto'}</button>
         </div>
       </Modal>
+
       <Modal isOpen={!!deleteConfirm} onClose={() => setDeleteConfirm(null)} title="Confirmar Exclusão" size="sm">
         <p className="text-navy-600">Tem certeza que deseja excluir este projeto?</p>
         <div className="flex justify-end gap-3 mt-6">
@@ -193,6 +287,22 @@ export default function ProjetosPage() {
           <button onClick={() => deleteConfirm && handleDelete(deleteConfirm)} className="btn-danger">Excluir</button>
         </div>
       </Modal>
+
+      <PasswordConfirmModal
+        isOpen={showPasswordModal}
+        title="Editar Projeto Consolidado"
+        description="Este projeto está consolidado. Confirme sua senha para continuar."
+        onConfirmed={() => {
+          setShowPasswordModal(false)
+          if (pendingEdit) doEdit(pendingEdit)
+          setPendingEdit(null)
+        }}
+        onCancel={() => {
+          setShowPasswordModal(false)
+          setPendingEdit(null)
+        }}
+      />
+
       <BlockErrorModal error={blockError} onClose={() => setBlockError(null)} />
     </div>
   )

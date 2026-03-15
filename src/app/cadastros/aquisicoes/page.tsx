@@ -12,8 +12,9 @@ interface Rec { id: string; descricao: string; valorAquisicao: number; dataAquis
 interface Conta { id: string; tipo: string; banco: string; agencia: string; numeroConta: string }
 interface Metodo { id: string; nome: string }
 interface Tipo { id: string; nome: string }
-interface Projeto { id: string; nome: string }
-interface Evento { id: string; nome: string; projetoVinculadoId?: string | null }
+interface Projeto { id: string; nome: string; status?: string }
+interface Evento { id: string; nome: string; projetoVinculadoId?: string | null; status?: string }
+interface Fornecedor { id: string; nome: string }
 
 const emptyForm = {
   descricao: '', projetoId: '', eventoId: '', tipoItemId: '', dataAquisicao: '',
@@ -61,7 +62,7 @@ export default function AquisicoesPage() {
   }, [])
   useEffect(() => { fetchData() }, [fetchData])
 
-  const filteredEventos = filterEventosByProjeto(eventos as any, form.projetoId)
+  const filteredEventos = filterEventosByProjeto(eventos as any, form.projetoId).filter((e: Evento) => e.status !== 'encerrado_consolidado')
   const fmtMoney = (v: number) => `R$ ${Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
   const fmtDate = (d: string) => d ? new Date(d).toLocaleDateString('pt-BR') : '-'
   const contaLabel = (c: Conta) => `${c.tipo} | Ag ${c.agencia} | Cta ${c.numeroConta} - ${c.banco}`
@@ -196,7 +197,7 @@ export default function AquisicoesPage() {
             <label>Projeto Relacionado</label>
             <select value={form.projetoId} onChange={e => setForm(p => ({ ...p, projetoId: e.target.value, eventoId: '' }))} className="form-input">
               <option value="">Nenhum</option>
-              {projetos.map(p => <option key={p.id} value={p.id}>{p.nome}</option>)}
+              {projetos.filter(p => p.status !== 'encerrado_consolidado').map(p => <option key={p.id} value={p.id}>{p.nome}</option>)}
             </select>
           </div>
 

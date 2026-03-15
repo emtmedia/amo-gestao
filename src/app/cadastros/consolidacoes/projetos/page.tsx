@@ -8,7 +8,7 @@ import FileUpload from '@/components/ui/FileUpload'
 import DateInput from '@/components/ui/DateInput'
 
 interface Consol { [key: string]: unknown; id: string; projetoId: string; dataConclusaoReal: string; saldoOrcamento: number }
-interface Projeto { id: string; nome: string; dataEncerramento: string; orcamentoEstimado: number }
+interface Projeto { id: string; nome: string; dataEncerramento: string; orcamentoEstimado: number; status?: string }
 interface Conta { id: string; tipo: string; banco: string; agencia: string; numeroConta: string }
 interface Metodo { id: string; nome: string }
 
@@ -139,7 +139,7 @@ export default function ConsolidacaoProjetosPage() {
                 <label>Projeto<span className="required-star">*</span></label>
                 <select value={form.projetoId} onChange={e=>onProjetoChange(e.target.value)} className="form-input">
                   <option value="">Selecione o projeto...</option>
-                  {projetos.map(p=><option key={p.id} value={p.id}>{p.nome}</option>)}
+                  {projetos.filter(p => p.status !== 'encerrado_consolidado' || p.id === form.projetoId).map(p=><option key={p.id} value={p.id}>{p.nome}</option>)}
                 </select>
               </div>
               <DateInput label="Data Real de Conclusão" required value={form.dataConclusaoReal} onChange={v=>setForm(p=>({...p,dataConclusaoReal:v}))}/>

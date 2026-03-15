@@ -5,30 +5,49 @@ import { getSession } from '@/lib/session'
 
 const prisma = new PrismaClient()
 
+const ROLE_LIMITS: Record<string, number> = { superadmin: 1, admin: 3, user: 12 }
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
-    const { nome, email, senha, role } = body
-
-    console.log('[register] Attempting for:', email)
+    const { nome, email, senha, role: requestedRole } = body
 
     let userCount = 0
     try {
       userCount = await prisma.usuario.count()
-      console.log('[register] User count:', userCount)
     } catch (dbErr: unknown) {
       const msg = dbErr instanceof Error ? dbErr.message : String(dbErr)
-      console.error('[register] DB error:', msg)
-      return NextResponse.json({
-        error: 'Erro ao conectar ao banco de dados.',
-        detail: msg
-      }, { status: 500 })
+      return NextResponse.json({ error: 'Erro ao conectar ao banco de dados.', detail: msg }, { status: 500 })
     }
+
+    // First user ever becomes superadmin
+    const targetRole = userCount === 0 ? 'superadmin' : (requestedRole || 'user')
 
     if (userCount > 0) {
       const session = await getSession()
-      if (!session || session.role !== 'admin') {
+      if (!session) {
         return NextResponse.json({ error: 'Apenas administradores podem cadastrar novos usuários.' }, { status: 403 })
+      }
+      const callerRole = session.role
+      // Hierarchy enforcement
+      if (callerRole === 'user') {
+        return NextResponse.json({ error: 'Usuários não podem criar outros usuários.' }, { status: 403 })
+      }
+      if (callerRole === 'admin' && targetRole !== 'user') {
+        return NextResponse.json({ error: 'Administradores só podem criar perfis de Usuário.' }, { status: 403 })
+      }
+      if (callerRole !== 'superadmin' && targetRole === 'superadmin') {
+        return NextResponse.json({ error: 'Apenas o SUPERADMIN pode criar outro SUPERADMIN.' }, { status: 403 })
+      }
+    }
+
+    // Enforce limits
+    if (targetRole in ROLE_LIMITS) {
+      const count = await prisma.usuario.count({ where: { role: targetRole } })
+      if (count >= ROLE_LIMITS[targetRole]) {
+        return NextResponse.json({
+          error: `Limite de ${ROLE_LIMITS[targetRole]} perfil(s) "${targetRole}" atingido.`
+        }, { status: 400 })
       }
     }
 
@@ -45,19 +64,17 @@ export async function POST(req: NextRequest) {
     }
 
     const senhaHash = await bcrypt.hash(senha, 12)
-
     const usuario = await prisma.usuario.create({
       data: {
         id: crypto.randomUUID(),
         nome: nome.trim(),
         email: email.toLowerCase().trim(),
         senhaHash,
-        role: userCount === 0 ? 'admin' : (role || 'user'),
+        role: targetRole,
         updatedAt: new Date(),
       }
     })
 
-    console.log('[register] Created:', usuario.id)
     return NextResponse.json({
       success: true,
       usuario: { id: usuario.id, nome: usuario.nome, email: usuario.email, role: usuario.role }
@@ -65,7 +82,6 @@ export async function POST(req: NextRequest) {
 
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : String(error)
-    console.error('[register] Error:', msg)
     return NextResponse.json({ error: 'Erro interno do servidor.', detail: msg }, { status: 500 })
   }
 }

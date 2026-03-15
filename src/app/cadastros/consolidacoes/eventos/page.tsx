@@ -8,8 +8,8 @@ import FileUpload from '@/components/ui/FileUpload'
 import DateInput from '@/components/ui/DateInput'
 
 interface Consol { [key: string]: unknown; id: string; eventoId: string; projetoVinculado: string | null; dataConclusaoReal: string; saldoOrcamento: number }
-interface Projeto { id: string; nome: string }
-interface Evento { id: string; nome: string; projetoVinculadoId: string | null; dataEncerramento: string; orcamentoEstimado: number }
+interface Projeto { id: string; nome: string; status?: string }
+interface Evento { id: string; nome: string; projetoVinculadoId: string | null; dataEncerramento: string; orcamentoEstimado: number; status?: string }
 interface Conta { id: string; tipo: string; banco: string; agencia: string; numeroConta: string }
 interface Metodo { id: string; nome: string }
 
@@ -84,11 +84,16 @@ export default function ConsolidacaoEventosPage() {
   const contaLabel = (c: Conta) => `${c.tipo} | Ag ${c.agencia} | Cta ${c.numeroConta} - ${c.banco}`
 
   // Eventos filtrados pelo projeto selecionado ou somente avulsos
-  const eventosFiltrados = form.eventoAvulso
-    ? eventos.filter(e => !e.projetoVinculadoId)
-    : form.projetoId
+  const eventosFiltrados = (() => {
+    let list = form.eventoAvulso
+      ? eventos.filter(e => !e.projetoVinculadoId)
+      : form.projetoId
       ? eventos.filter(e => e.projetoVinculadoId === form.projetoId)
       : []
+    // Exclude consolidated events (unless it's the one being edited)
+    list = list.filter(e => e.status !== 'encerrado_consolidado' || e.id === form.eventoId)
+    return list
+  })()
 
   const eventoSelecionado = eventos.find(e => e.id === form.eventoId) || null
 
@@ -275,7 +280,7 @@ export default function ConsolidacaoEventosPage() {
                   className={`form-input ${form.eventoAvulso ? 'opacity-50 cursor-not-allowed bg-cream-100' : ''}`}
                 >
                   <option value="">Selecione o projeto...</option>
-                  {projetos.map(p => <option key={p.id} value={p.id}>{p.nome}</option>)}
+                  {projetos.filter(p => p.status !== 'encerrado_consolidado' || p.id === form.projetoId).map(p => <option key={p.id} value={p.id}>{p.nome}</option>)}
                 </select>
                 {form.eventoAvulso && (
                   <p className="text-xs text-amber-600 mt-1 flex items-center gap-1">
