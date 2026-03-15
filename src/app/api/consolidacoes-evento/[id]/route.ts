@@ -15,7 +15,7 @@ export async function GET(_: NextRequest, { params }: { params: { id: string } }
 export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
   try {
     const body = await request.json()
-    const { projetoVinculado, dataConclusaoReal, dataLimiteAjuste, valorAjuste, ...rest } = body
+    const { projetoVinculado, dataConclusaoReal, dataLimiteAjuste, valorAjuste, saldoPositivo: _sp, ...rest } = body
     const item = await prisma.consolidacaoEvento.update({
       where: { id: params.id },
       data: {
