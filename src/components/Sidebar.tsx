@@ -106,6 +106,7 @@ const navItems: NavItem[] = [
     label: 'Configurações', icon: Settings,
     children: [
       { label: 'Preferências', icon: Settings, href: '/configuracoes' },
+      { label: 'Guia do Usuário', icon: BookOpen, href: '/configuracoes/guia' },
       { label: 'Log de Auditoria', icon: FileText, href: '/admin/audit-log', adminOnly: true },
       { label: 'Usuários do Sistema', icon: Users, href: '/admin/usuarios', adminOnly: true },
     ]
@@ -175,7 +176,7 @@ export default function Sidebar() {
   useEffect(() => {
     fetch('/api/auth/me')
       .then(r => r.ok ? r.json() : null)
-      .then(data => { if (data?.usuario?.role === 'admin') setIsAdmin(true) })
+      .then(data => { if (['admin', 'superadmin'].includes(data?.usuario?.role)) setIsAdmin(true) })
       .catch(() => {})
   }, [])
 
