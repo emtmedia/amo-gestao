@@ -6,7 +6,7 @@ import { Suspense } from 'react'
 interface ConsolData {
   id: string; projetoId: string; dataConclusaoReal: string
   consideracoes: string; pendencias: string; acoesPositivas: string; licoesAprendidas: string
-  saldoPositivo: boolean; nomeOperador: string; cpfOperador: string
+  saldoOrcamento: number | null; nomeOperador: string; cpfOperador: string
   metodoAjuste: string; valorAjuste: number; contaReceptoraId: string; dataLimiteAjuste: string
   arquivosReferencia: string; createdAt: string
 }
@@ -14,7 +14,27 @@ interface Projeto {
   id: string; nome: string; responsavel: string; emailResponsavel: string; telefoneResponsavel: string
   dataInicio: string; dataEncerramento: string; orcamentoEstimado: number
   estadoRealizacao: string; cidadeRealizacao: string; paisRealizacao: string
-  numeroVoluntarios: number; comentarios: string
+  numeroVoluntarios: number; comentarios: string; arquivosReferencia: string | null
+}
+interface EventoComFiles { id: string; nome: string; arquivosReferencia: string | null; consolFiles: string | null }
+interface FileEntry { name: string; url: string; size?: number; type?: string }
+function parseFiles(json: string | null | undefined): FileEntry[] {
+  if (!json) return []
+  try { return JSON.parse(json) } catch { return [] }
+}
+function FileList({ files }: { files: FileEntry[] }) {
+  if (!files.length) return null
+  return (
+    <ul className="space-y-1.5">
+      {files.map((f, i) => (
+        <li key={i} className="flex items-center gap-2 text-sm">
+          <span>📎</span>
+          <a href={f.url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline break-all">{f.name}</a>
+          {f.size ? <span className="text-xs text-gray-400 flex-shrink-0">({(f.size / 1024).toFixed(0)} KB)</span> : null}
+        </li>
+      ))}
+    </ul>
+  )
 }
 interface Conta { id: string; tipo: string; banco: string; agencia: string; numeroConta: string }
 interface Metodo { id: string; nome: string }
@@ -33,6 +53,7 @@ function RelatorioContent() {
   const [error, setError] = useState('')
 
   const [orcamentoRealizado, setOrcamentoRealizado] = useState<number>(0)
+  const [eventosComFiles, setEventosComFiles] = useState<EventoComFiles[]>([])
 
   useEffect(() => {
     if (!id) { setError('ID não informado'); setLoading(false); return }
@@ -47,9 +68,20 @@ function RelatorioContent() {
           Promise.all([
             fetch(`/api/projetos/${jc.data.projetoId}`).then(r => r.json()),
             fetch(`/api/relatorio/orcamento-projeto?projetoId=${jc.data.projetoId}`).then(r => r.json()).catch(() => ({ success: false })),
-          ]).then(([jp, jor]) => {
+            fetch('/api/eventos').then(r => r.json()).catch(() => ({ success: false })),
+            fetch('/api/consolidacoes-evento').then(r => r.json()).catch(() => ({ success: false })),
+          ]).then(([jp, jor, jev, jce]) => {
             if (jp.success) setProjeto(jp.data)
             if (jor.success) setOrcamentoRealizado(jor.total || 0)
+            if (jev.success && jce.success) {
+              const linked: EventoComFiles[] = jev.data
+                .filter((e: { projetoVinculadoId: string }) => e.projetoVinculadoId === jc.data.projetoId)
+                .map((e: { id: string; nome: string; arquivosReferencia: string | null }) => {
+                  const consolEvento = jce.data.find((c: { eventoId: string }) => c.eventoId === e.id)
+                  return { id: e.id, nome: e.nome, arquivosReferencia: e.arquivosReferencia, consolFiles: consolEvento?.arquivosReferencia ?? null }
+                })
+              setEventosComFiles(linked)
+            }
           })
         }
       } else setError('Consolidação não encontrada')
@@ -64,6 +96,7 @@ function RelatorioContent() {
 
   const conta = contas.find(c => c.id === consol.contaReceptoraId)
   const metodo = metodos.find(m => m.id === consol.metodoAjuste)
+  const saldoPositivo = consol.saldoOrcamento === null || consol.saldoOrcamento === undefined ? true : consol.saldoOrcamento >= 0
 
   return (
     <div className="min-h-screen bg-white p-8 max-w-4xl mx-auto print:p-4">
@@ -181,13 +214,13 @@ function RelatorioContent() {
           <span className="w-6 h-6 rounded-full bg-navy-700 text-white text-xs flex items-center justify-center font-bold">III</span>
           Financeiro do Projeto
         </h3>
-        <div className={`rounded-xl p-5 border-2 ${consol.saldoPositivo ? 'bg-green-50 border-green-300' : 'bg-red-50 border-red-300'}`}>
+        <div className={`rounded-xl p-5 border-2 ${saldoPositivo ? 'bg-green-50 border-green-300' : 'bg-red-50 border-red-300'}`}>
           <div className="flex items-center gap-3 mb-4">
-            <span className={`text-2xl font-bold ${consol.saldoPositivo ? 'text-green-700' : 'text-red-700'}`}>
-              {consol.saldoPositivo ? '✅ Saldo Positivo' : '⚠️ Saldo Negativo — Ajuste Necessário'}
+            <span className={`text-2xl font-bold ${saldoPositivo ? 'text-green-700' : 'text-red-700'}`}>
+              {saldoPositivo ? '✅ Saldo Positivo' : '⚠️ Saldo Negativo — Ajuste Necessário'}
             </span>
           </div>
-          {!consol.saldoPositivo && (
+          {!saldoPositivo && (
             <div className="grid grid-cols-2 gap-4 mt-3">
               <div>
                 <p className="text-xs text-gray-500 uppercase tracking-wide">Operador/Tesoureiro do Ajuste</p>
@@ -217,6 +250,72 @@ function RelatorioContent() {
           )}
         </div>
       </section>
+
+      {/* SEÇÃO IV — ARQUIVOS ANEXOS */}
+      {(() => {
+        const consolFiles = parseFiles(consol.arquivosReferencia)
+        const projetoFiles = parseFiles(projeto?.arquivosReferencia ?? null)
+        const eventosComArquivos = eventosComFiles.filter(e => parseFiles(e.arquivosReferencia).length > 0 || parseFiles(e.consolFiles).length > 0)
+        const total = consolFiles.length + projetoFiles.length + eventosComArquivos.length
+        if (total === 0) return null
+        return (
+          <section className="mb-8">
+            <h3 className="text-sm font-bold uppercase tracking-widest text-gray-500 mb-4 flex items-center gap-2">
+              <span className="w-6 h-6 rounded-full bg-navy-700 text-white text-xs flex items-center justify-center font-bold">IV</span>
+              Arquivos Anexos
+            </h3>
+            <div className="border border-gray-200 rounded-xl p-5 space-y-5">
+              {/* Projeto e consolidação */}
+              {(projetoFiles.length > 0 || consolFiles.length > 0) && (
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-wide text-navy-700 mb-3">📁 Projeto: {projeto?.nome}</p>
+                  {projetoFiles.length > 0 && (
+                    <div className="mb-3">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-1.5">Arquivos do Projeto</p>
+                      <FileList files={projetoFiles} />
+                    </div>
+                  )}
+                  {consolFiles.length > 0 && (
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-1.5">Arquivos da Consolidação do Projeto</p>
+                      <FileList files={consolFiles} />
+                    </div>
+                  )}
+                </div>
+              )}
+              {/* Eventos vinculados */}
+              {eventosComArquivos.length > 0 && (
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-wide text-navy-700 mb-3">📅 Eventos Vinculados</p>
+                  <div className="space-y-4">
+                    {eventosComArquivos.map(ev => {
+                      const evFiles = parseFiles(ev.arquivosReferencia)
+                      const evConsolFiles = parseFiles(ev.consolFiles)
+                      return (
+                        <div key={ev.id} className="pl-3 border-l-2 border-gray-200">
+                          <p className="text-xs font-semibold text-gray-700 mb-2">{ev.nome}</p>
+                          {evFiles.length > 0 && (
+                            <div className="mb-2">
+                              <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">Arquivos do Evento</p>
+                              <FileList files={evFiles} />
+                            </div>
+                          )}
+                          {evConsolFiles.length > 0 && (
+                            <div>
+                              <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">Arquivos da Consolidação</p>
+                              <FileList files={evConsolFiles} />
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          </section>
+        )
+      })()}
 
       {/* FOOTER */}
       <div className="mt-10 pt-6 border-t-2 border-gray-200">

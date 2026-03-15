@@ -13,7 +13,26 @@ interface Evento {
   id: string; nome: string; responsavel: string; emailResponsavel: string; telefoneResponsavel: string
   dataInicio: string; dataEncerramento: string; orcamentoEstimado: number
   estadoRealizacao: string; cidadeRealizacao: string; paisRealizacao: string
-  numeroVoluntarios: number; projetoVinculadoId: string
+  numeroVoluntarios: number; projetoVinculadoId: string; arquivosReferencia: string | null
+}
+interface FileEntry { name: string; url: string; size?: number; type?: string }
+function parseFiles(json: string | null | undefined): FileEntry[] {
+  if (!json) return []
+  try { return JSON.parse(json) } catch { return [] }
+}
+function FileList({ files, emptyMsg }: { files: FileEntry[]; emptyMsg?: string }) {
+  if (!files.length) return emptyMsg ? <p className="text-xs text-gray-400 italic">{emptyMsg}</p> : null
+  return (
+    <ul className="space-y-1.5">
+      {files.map((f, i) => (
+        <li key={i} className="flex items-center gap-2 text-sm">
+          <span>📎</span>
+          <a href={f.url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline break-all">{f.name}</a>
+          {f.size ? <span className="text-xs text-gray-400 flex-shrink-0">({(f.size / 1024).toFixed(0)} KB)</span> : null}
+        </li>
+      ))}
+    </ul>
+  )
 }
 interface Projeto { id: string; nome: string }
 interface Conta { id: string; tipo: string; banco: string; agencia: string; numeroConta: string }
@@ -212,6 +231,36 @@ function RelatorioContent() {
           )}
         </div>
       </section>
+
+      {/* SEÇÃO IV — ARQUIVOS ANEXOS */}
+      {(() => {
+        const consolFiles = parseFiles(consol.arquivosReferencia)
+        const eventoFiles = parseFiles(evento?.arquivosReferencia ?? null)
+        const total = consolFiles.length + eventoFiles.length
+        if (total === 0) return null
+        return (
+          <section className="mb-8">
+            <h3 className="text-sm font-bold uppercase tracking-widest text-gray-500 mb-4 flex items-center gap-2">
+              <span className="w-6 h-6 rounded-full bg-navy-700 text-white text-xs flex items-center justify-center font-bold">IV</span>
+              Arquivos Anexos
+            </h3>
+            <div className="border border-gray-200 rounded-xl p-5 space-y-4">
+              {eventoFiles.length > 0 && (
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-2">Arquivos do Evento</p>
+                  <FileList files={eventoFiles} />
+                </div>
+              )}
+              {consolFiles.length > 0 && (
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-2">Arquivos da Consolidação</p>
+                  <FileList files={consolFiles} />
+                </div>
+              )}
+            </div>
+          </section>
+        )
+      })()}
 
       {/* FOOTER */}
       <div className="mt-10 pt-6 border-t-2 border-gray-200">
