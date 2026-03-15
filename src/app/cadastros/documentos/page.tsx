@@ -1,9 +1,11 @@
 'use client'
-import { useState, useEffect, useCallback, useRef } from 'react'
-import { Plus, Upload, Search, FileText, File, Image, FileArchive, FileSpreadsheet, Download, Eye, Pencil, Trash2, Tag, Lock, Unlock, RefreshCw, FolderOpen, X, Filter, LayoutGrid, List } from 'lucide-react'
+import { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react'
+import { Plus, Upload, Search, FileText, File, Image, FileArchive, FileSpreadsheet, Download, Eye, Pencil, Trash2, Tag, Lock, Unlock, RefreshCw, FolderOpen, X, Filter, LayoutGrid, List, ScanLine } from 'lucide-react'
 import Modal from '@/components/ui/Modal'
 import DateInput from '@/components/ui/DateInput'
 import { usePreferences } from '@/lib/preferences'
+
+const ScannerCapture = lazy(() => import('@/components/ui/ScannerCapture'))
 
 interface Cat { id: string; nome: string; cor: string; icone: string }
 interface Doc {
@@ -78,6 +80,7 @@ export default function Page() {
   const [uploadedType, setUploadedType] = useState('')
   const [uploadedSize, setUploadedSize] = useState(0)
   const fileRef = useRef<HTMLInputElement>(null)
+  const [scannerOpen, setScannerOpen] = useState(false)
   // Filters
   const [search, setSearch] = useState('')
   const [filterCat, setFilterCat] = useState('')
@@ -127,6 +130,22 @@ export default function Page() {
     setUploadFile(null); setUploadedUrl(''); setUploadedPath('')
     setUploadedName(doc.nomeArquivo); setUploadedType(doc.tipoArquivo); setUploadedSize(doc.tamanhoArquivo||0)
     setModalAlert(null); setModalOpen(true)
+  }
+
+  const handleScanCapture = async (file: File) => {
+    setScannerOpen(false)
+    setUploading(true)
+    try {
+      const formData = new FormData(); formData.append('file', file); formData.append('folder', 'documentos-amo')
+      const res = await fetch('/api/upload', { method: 'POST', body: formData })
+      const j = await res.json()
+      if (j.ok || j.success) {
+        setUploadedUrl(j.url); setUploadedPath(j.path)
+        setUploadedName(file.name); setUploadedType(file.type); setUploadedSize(file.size)
+        showToast('Arquivo capturado e enviado com sucesso!')
+      } else { showToast(j.error || 'Erro ao enviar arquivo', 'error') }
+    } catch { showToast('Erro ao enviar arquivo', 'error') }
+    finally { setUploading(false) }
   }
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -456,37 +475,54 @@ export default function Page() {
             <label className="block text-sm font-medium text-navy-700 mb-2">
               Arquivo{!editing && <span className="required-star">*</span>}
             </label>
-            <div
-              onClick={() => fileRef.current?.click()}
-              className={`border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-colors ${uploadedUrl || (editing && !uploadFile) ? 'border-green-300 bg-green-50' : 'border-cream-300 hover:border-navy-300 bg-cream-50'}`}
-            >
-              <input ref={fileRef} type="file" className="hidden" onChange={handleFileSelect}
-                accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.jpg,.jpeg,.png,.gif,.zip,.rar,.txt,.csv" />
-              {uploading ? (
-                <div className="flex flex-col items-center gap-2 text-navy-400">
-                  <div className="w-8 h-8 border-2 border-navy-300 border-t-navy-600 rounded-full animate-spin" />
-                  <span className="text-sm">Enviando arquivo...</span>
-                </div>
-              ) : uploadedUrl ? (
-                <div className="flex flex-col items-center gap-2">
-                  {fileIcon(uploadedType)}
-                  <p className="text-sm font-medium text-green-700">{uploadedName}</p>
-                  <p className="text-xs text-navy-400">{fmtSize(uploadedSize)} · Clique para substituir</p>
-                </div>
-              ) : editing ? (
-                <div className="flex flex-col items-center gap-2 text-navy-400">
-                  {fileIcon(editing.tipoArquivo)}
-                  <p className="text-sm font-medium text-navy-600">{editing.nomeArquivo}</p>
-                  <p className="text-xs">Arquivo atual · Clique para substituir</p>
-                </div>
-              ) : (
-                <div className="flex flex-col items-center gap-2 text-navy-400">
-                  <Upload className="w-8 h-8" />
-                  <p className="text-sm font-medium">Clique para selecionar o arquivo</p>
-                  <p className="text-xs">PDF, Word, Excel, imagens, ZIP — máx. 10 MB</p>
-                </div>
-              )}
+            <div className="flex gap-2">
+              <div
+                onClick={() => fileRef.current?.click()}
+                className={`flex-1 border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-colors ${uploadedUrl || (editing && !uploadFile) ? 'border-green-300 bg-green-50' : 'border-cream-300 hover:border-navy-300 bg-cream-50'}`}
+              >
+                <input ref={fileRef} type="file" className="hidden" onChange={handleFileSelect}
+                  accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.jpg,.jpeg,.png,.gif,.zip,.rar,.txt,.csv" />
+                {uploading ? (
+                  <div className="flex flex-col items-center gap-2 text-navy-400">
+                    <div className="w-8 h-8 border-2 border-navy-300 border-t-navy-600 rounded-full animate-spin" />
+                    <span className="text-sm">Enviando arquivo...</span>
+                  </div>
+                ) : uploadedUrl ? (
+                  <div className="flex flex-col items-center gap-2">
+                    {fileIcon(uploadedType)}
+                    <p className="text-sm font-medium text-green-700">{uploadedName}</p>
+                    <p className="text-xs text-navy-400">{fmtSize(uploadedSize)} · Clique para substituir</p>
+                  </div>
+                ) : editing ? (
+                  <div className="flex flex-col items-center gap-2 text-navy-400">
+                    {fileIcon(editing.tipoArquivo)}
+                    <p className="text-sm font-medium text-navy-600">{editing.nomeArquivo}</p>
+                    <p className="text-xs">Arquivo atual · Clique para substituir</p>
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center gap-2 text-navy-400">
+                    <Upload className="w-8 h-8" />
+                    <p className="text-sm font-medium">Clique para selecionar o arquivo</p>
+                    <p className="text-xs">PDF, Word, Excel, imagens, ZIP — máx. 10 MB</p>
+                  </div>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={() => setScannerOpen(true)}
+                disabled={uploading}
+                className="flex flex-col items-center justify-center gap-1.5 px-4 border-2 border-dashed border-blue-300 rounded-xl bg-blue-50 hover:bg-blue-100 hover:border-blue-400 transition-colors text-blue-600 disabled:opacity-40 disabled:cursor-not-allowed min-w-[100px]"
+                title="Capturar documento via câmera ou scanner"
+              >
+                <ScanLine className="w-5 h-5" />
+                <span className="text-xs font-medium leading-tight text-center">Obter do<br/>Scanner</span>
+              </button>
             </div>
+            {scannerOpen && (
+              <Suspense fallback={null}>
+                <ScannerCapture open={scannerOpen} onClose={() => setScannerOpen(false)} onCapture={handleScanCapture} />
+              </Suspense>
+            )}
           </div>
 
           <div className="md:col-span-2 form-group">
