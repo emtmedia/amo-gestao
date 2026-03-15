@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
@@ -124,10 +124,19 @@ function NavItemComponent({ item, depth = 0, isAdmin = false }: { item: NavItem;
   const isActive = item.href === pathname
   const isParentActive = hasChildren && visibleChildren?.some(c => c.href === pathname)
   const [open, setOpen] = useState(() => isParentActive ?? false)
+  const itemRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (open && itemRef.current) {
+      setTimeout(() => {
+        itemRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+      }, 50)
+    }
+  }, [open])
 
   if (hasChildren) {
     return (
-      <div>
+      <div ref={itemRef}>
         <button
           onClick={() => setOpen(prev => !prev)}
           className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm font-medium transition-all
