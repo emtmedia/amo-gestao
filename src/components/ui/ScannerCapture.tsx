@@ -93,19 +93,42 @@ export default function ScannerCapture({ open, onClose, onCapture }: ScannerCapt
 
       // Wait for video to be fully ready with frames
       await new Promise<void>((resolve, reject) => {
-        const timeout = setTimeout(() => reject(new Error('Timeout ao inicializar câmera')), 10000)
-        
-        const onPlaying = () => {
+        const timeout = setTimeout(() => {
+          // Timeout: if we already have frames, resolve anyway
+          if (video.videoWidth > 0 || video.readyState >= 2) {
+            resolve()
+          } else {
+            reject(new Error('Timeout ao inicializar câmera'))
+          }
+        }, 10000)
+
+        const done = () => {
           clearTimeout(timeout)
-          video.removeEventListener('playing', onPlaying)
-          // Extra delay to ensure first frames are rendered
-          setTimeout(resolve, 300)
+          video.removeEventListener('playing', done)
+          video.removeEventListener('canplay', done)
+          video.removeEventListener('loadeddata', done)
+          setTimeout(resolve, 200)
         }
-        
-        video.addEventListener('playing', onPlaying)
+
+        // Listen to multiple events — whichever fires first wins
+        video.addEventListener('playing', done)
+        video.addEventListener('canplay', done)
+        video.addEventListener('loadeddata', done)
+
+        // If already playing (autoPlay fired before listener), resolve immediately
+        if (!video.paused && video.readyState >= 2) {
+          done()
+          return
+        }
+
         video.play().catch(err => {
-          clearTimeout(timeout)
-          reject(err)
+          // autoPlay may have already started — check before rejecting
+          if (!video.paused || video.readyState >= 2) {
+            done()
+          } else {
+            clearTimeout(timeout)
+            reject(err)
+          }
         })
       })
 
