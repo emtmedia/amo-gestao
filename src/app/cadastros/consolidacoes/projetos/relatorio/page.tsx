@@ -38,9 +38,46 @@ function FileList({ files }: { files: FileEntry[] }) {
 }
 interface Conta { id: string; tipo: string; banco: string; agencia: string; numeroConta: string }
 interface Metodo { id: string; nome: string }
+interface Financeiro {
+  receitas: { total: number; breakdown: Record<string, number> }
+  despesas: { total: number; breakdown: Record<string, number> }
+  saldo: number
+}
 
 const fmt = (v: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v || 0)
 const fmtDate = (d: string) => d ? new Date(d).toLocaleDateString('pt-BR') : '—'
+
+function BreakdownTable({ title, data, total, color }: {
+  title: string; data: Record<string, number>; total: number; color: 'green' | 'red'
+}) {
+  const rows = Object.entries(data).filter(([, v]) => v > 0)
+  if (rows.length === 0) return (
+    <div className={`rounded-xl p-4 border ${color === 'green' ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
+      <p className={`text-xs font-bold uppercase tracking-wide mb-2 ${color === 'green' ? 'text-green-700' : 'text-red-700'}`}>{title}</p>
+      <p className="text-xs text-gray-400 italic">Nenhum registro encontrado</p>
+      <p className={`mt-2 font-bold text-sm ${color === 'green' ? 'text-green-800' : 'text-red-800'}`}>Total: {fmt(0)}</p>
+    </div>
+  )
+  return (
+    <div className={`rounded-xl p-4 border ${color === 'green' ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
+      <p className={`text-xs font-bold uppercase tracking-wide mb-3 ${color === 'green' ? 'text-green-700' : 'text-red-700'}`}>{title}</p>
+      <table className="w-full text-xs">
+        <tbody>
+          {rows.map(([label, value]) => (
+            <tr key={label}>
+              <td className="py-0.5 text-gray-600 pr-2">{label}</td>
+              <td className={`py-0.5 text-right font-medium tabular-nums ${color === 'green' ? 'text-green-700' : 'text-red-700'}`}>{fmt(value)}</td>
+            </tr>
+          ))}
+          <tr className={`border-t mt-1 ${color === 'green' ? 'border-green-300' : 'border-red-300'}`}>
+            <td className={`pt-1.5 font-bold ${color === 'green' ? 'text-green-800' : 'text-red-800'}`}>Total</td>
+            <td className={`pt-1.5 text-right font-bold tabular-nums ${color === 'green' ? 'text-green-800' : 'text-red-800'}`}>{fmt(total)}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  )
+}
 
 function RelatorioContent() {
   const searchParams = useSearchParams()
@@ -49,10 +86,9 @@ function RelatorioContent() {
   const [projeto, setProjeto] = useState<Projeto | null>(null)
   const [contas, setContas] = useState<Conta[]>([])
   const [metodos, setMetodos] = useState<Metodo[]>([])
+  const [financeiro, setFinanceiro] = useState<Financeiro | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-
-  const [orcamentoRealizado, setOrcamentoRealizado] = useState<number>(0)
   const [eventosComFiles, setEventosComFiles] = useState<EventoComFiles[]>([])
 
   useEffect(() => {
@@ -65,17 +101,18 @@ function RelatorioContent() {
       if (jc.success) {
         setConsol(jc.data)
         if (jc.data.projetoId) {
+          const projetoId = jc.data.projetoId
           Promise.all([
-            fetch(`/api/projetos/${jc.data.projetoId}`).then(r => r.json()),
-            fetch(`/api/relatorio/orcamento-projeto?projetoId=${jc.data.projetoId}`).then(r => r.json()).catch(() => ({ success: false })),
+            fetch(`/api/projetos/${projetoId}`).then(r => r.json()),
+            fetch(`/api/relatorio/financeiro-projeto?projetoId=${projetoId}`).then(r => r.json()).catch(() => null),
             fetch('/api/eventos').then(r => r.json()).catch(() => ({ success: false })),
             fetch('/api/consolidacoes-evento').then(r => r.json()).catch(() => ({ success: false })),
-          ]).then(([jp, jor, jev, jce]) => {
+          ]).then(([jp, jf, jev, jce]) => {
             if (jp.success) setProjeto(jp.data)
-            if (jor.success) setOrcamentoRealizado(jor.total || 0)
+            if (jf?.success) setFinanceiro(jf)
             if (jev.success && jce.success) {
               const linked: EventoComFiles[] = jev.data
-                .filter((e: { projetoVinculadoId: string }) => e.projetoVinculadoId === jc.data.projetoId)
+                .filter((e: { projetoVinculadoId: string }) => e.projetoVinculadoId === projetoId)
                 .map((e: { id: string; nome: string; arquivosReferencia: string | null }) => {
                   const consolEvento = jce.data.find((c: { eventoId: string }) => c.eventoId === e.id)
                   return { id: e.id, nome: e.nome, arquivosReferencia: e.arquivosReferencia, consolFiles: consolEvento?.arquivosReferencia ?? null }
@@ -97,6 +134,8 @@ function RelatorioContent() {
   const conta = contas.find(c => c.id === consol.contaReceptoraId)
   const metodo = metodos.find(m => m.id === consol.metodoAjuste)
   const saldoPositivo = consol.saldoOrcamento === null || consol.saldoOrcamento === undefined ? true : consol.saldoOrcamento >= 0
+  const ajuste = consol.valorAjuste || 0
+  const saldoFinal = financeiro ? financeiro.saldo + ajuste : null
 
   return (
     <div className="min-h-screen bg-white p-8 max-w-4xl mx-auto print:p-4">
@@ -170,20 +209,6 @@ function RelatorioContent() {
             <p className="text-xs text-gray-500 uppercase tracking-wide">Orçamento Estimado</p>
             <p className="font-bold text-gray-800">{fmt(projeto?.orcamentoEstimado ?? 0)}</p>
           </div>
-          {orcamentoRealizado > 0 && (
-            <>
-              <div>
-                <p className="text-xs text-gray-500 uppercase tracking-wide">Orçamento Realizado (Receitas)</p>
-                <p className="font-bold text-emerald-700">{fmt(orcamentoRealizado)}</p>
-              </div>
-              <div>
-                <p className="text-xs text-gray-500 uppercase tracking-wide">Saldo do Orçamento</p>
-                <p className={`font-bold text-lg ${(projeto?.orcamentoEstimado ?? 0) - orcamentoRealizado >= 0 ? 'text-emerald-700' : 'text-red-700'}`}>
-                  {fmt((projeto?.orcamentoEstimado ?? 0) - orcamentoRealizado)}
-                </p>
-              </div>
-            </>
-          )}
         </div>
       </section>
 
@@ -214,6 +239,40 @@ function RelatorioContent() {
           <span className="w-6 h-6 rounded-full bg-navy-700 text-white text-xs flex items-center justify-center font-bold">III</span>
           Financeiro do Projeto
         </h3>
+
+        {/* Breakdown receitas x despesas */}
+        {financeiro && (
+          <div className="mb-4 space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <BreakdownTable title="Receitas" data={financeiro.receitas.breakdown} total={financeiro.receitas.total} color="green" />
+              <BreakdownTable title="Despesas" data={financeiro.despesas.breakdown} total={financeiro.despesas.total} color="red" />
+            </div>
+
+            {/* Saldo operacional */}
+            <div className={`flex items-center justify-between px-5 py-3 rounded-xl border-2 ${financeiro.saldo >= 0 ? 'bg-emerald-50 border-emerald-300' : 'bg-red-50 border-red-300'}`}>
+              <span className="font-bold text-gray-700 text-sm uppercase tracking-wide">Saldo Operacional (Receitas − Despesas)</span>
+              <span className={`font-bold text-xl tabular-nums ${financeiro.saldo >= 0 ? 'text-emerald-700' : 'text-red-700'}`}>{fmt(financeiro.saldo)}</span>
+            </div>
+
+            {/* Ajuste e saldo final */}
+            {ajuste > 0 && (
+              <>
+                <div className="flex items-center justify-between px-5 py-3 rounded-xl border border-amber-300 bg-amber-50">
+                  <span className="font-medium text-gray-700 text-sm">Ajuste de Consolidação</span>
+                  <span className="font-bold text-amber-700 tabular-nums">+ {fmt(ajuste)}</span>
+                </div>
+                {saldoFinal !== null && (
+                  <div className={`flex items-center justify-between px-5 py-3 rounded-xl border-2 font-bold ${saldoFinal >= 0 ? 'bg-green-100 border-green-400 text-green-800' : 'bg-red-100 border-red-400 text-red-800'}`}>
+                    <span className="text-sm uppercase tracking-wide">Saldo Final</span>
+                    <span className="text-xl tabular-nums">{fmt(saldoFinal)}</span>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        )}
+
+        {/* Resultado consolidação */}
         <div className={`rounded-xl p-5 border-2 ${saldoPositivo ? 'bg-green-50 border-green-300' : 'bg-red-50 border-red-300'}`}>
           <div className="flex items-center gap-3 mb-4">
             <span className={`text-2xl font-bold ${saldoPositivo ? 'text-green-700' : 'text-red-700'}`}>
@@ -265,7 +324,6 @@ function RelatorioContent() {
               Arquivos Anexos
             </h3>
             <div className="border border-gray-200 rounded-xl p-5 space-y-5">
-              {/* Projeto e consolidação */}
               {(projetoFiles.length > 0 || consolFiles.length > 0) && (
                 <div>
                   <p className="text-xs font-bold uppercase tracking-wide text-navy-700 mb-3">📁 Projeto: {projeto?.nome}</p>
@@ -283,7 +341,6 @@ function RelatorioContent() {
                   )}
                 </div>
               )}
-              {/* Eventos vinculados */}
               {eventosComArquivos.length > 0 && (
                 <div>
                   <p className="text-xs font-bold uppercase tracking-wide text-navy-700 mb-3">📅 Eventos Vinculados</p>
