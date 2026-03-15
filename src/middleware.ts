@@ -9,6 +9,7 @@ const PUBLIC_API_PATHS = [
   '/api/auth/reset-password',
   '/api/auth/register',
   '/api/diagnostico',
+  '/api/migrate',
 ]
 
 export async function middleware(request: NextRequest) {
