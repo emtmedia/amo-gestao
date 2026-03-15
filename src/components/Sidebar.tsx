@@ -37,6 +37,7 @@ const navItems: NavItem[] = [
     children: [
       { label: 'Projetos de Filantropia', icon: FolderOpen, href: '/cadastros/projetos' },
       { label: 'Voluntários do Projeto', icon: Users, href: '/cadastros/voluntarios-projeto' },
+      { label: 'Extrato de Projeto', icon: FileText, href: '/cadastros/projetos/extrato' },
     ]
   },
   {
@@ -44,6 +45,7 @@ const navItems: NavItem[] = [
     children: [
       { label: 'Eventos', icon: Calendar, href: '/cadastros/eventos' },
       { label: 'Voluntários do Evento', icon: Users, href: '/cadastros/voluntarios-evento' },
+      { label: 'Extrato de Evento', icon: FileText, href: '/cadastros/eventos/extrato' },
     ]
   },
   {

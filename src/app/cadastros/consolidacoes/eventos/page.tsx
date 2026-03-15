@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect, useCallback } from 'react'
-import { Plus, CalendarCheck } from 'lucide-react'
+import { Plus, CalendarCheck, TrendingUp, TrendingDown, AlertTriangle } from 'lucide-react'
 import DataTable from '@/components/ui/DataTable'
 import Modal from '@/components/ui/Modal'
 import CurrencyInput, { parseBRL } from '@/components/ui/CurrencyInput'
@@ -12,6 +12,7 @@ interface Projeto { id: string; nome: string; status?: string }
 interface Evento { id: string; nome: string; projetoVinculadoId: string | null; dataEncerramento: string; orcamentoEstimado: number; status?: string }
 interface Conta { id: string; tipo: string; banco: string; agencia: string; numeroConta: string }
 interface Metodo { id: string; nome: string }
+interface Financeiro { receitas: number; despesas: number; saldo: number }
 
 const AVULSO_LABEL = 'Evento avulso sem projeto vinculado'
 
@@ -22,7 +23,6 @@ const emptyForm = {
   projetoVinculado: '', // stored in DB
   dataConclusaoReal: '',
   consideracoes: '', pendencias: '', acoesPositivas: '', licoesAprendidas: '',
-  saldoPositivo: false as boolean,
   nomeOperador: '', cpfOperador: '', metodoAjuste: '', valorAjuste: '', contaReceptoraId: '', dataLimiteAjuste: '', arquivosReferencia: ''
 }
 
@@ -44,6 +44,8 @@ export default function ConsolidacaoEventosPage() {
   const [toast,      setToast]      = useState<{ msg: string; type: 'success' | 'error' } | null>(null)
   const [modalAlert, setModalAlert] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
   const [migrated,   setMigrated]   = useState(false)
+  const [financeiro, setFinanceiro] = useState<Financeiro | null>(null)
+  const [financeiroLoading, setFinanceiroLoading] = useState(false)
 
   const showToast = (msg: string, type: 'success' | 'error' = 'success') => {
     setToast({ msg, type }); setTimeout(() => setToast(null), 3500)
@@ -81,6 +83,18 @@ export default function ConsolidacaoEventosPage() {
 
   useEffect(() => { runMigration(); fetchData() }, [runMigration, fetchData])
 
+  const fetchFinanceiro = async (eventoId: string) => {
+    if (!eventoId) { setFinanceiro(null); return }
+    setFinanceiroLoading(true)
+    try {
+      const r = await fetch(`/api/relatorio/financeiro-evento?eventoId=${eventoId}`)
+      const j = await r.json()
+      if (j.success) setFinanceiro({ receitas: j.receitas.total, despesas: j.despesas.total, saldo: j.saldo })
+      else setFinanceiro(null)
+    } catch { setFinanceiro(null) }
+    finally { setFinanceiroLoading(false) }
+  }
+
   const contaLabel = (c: Conta) => `${c.tipo} | Ag ${c.agencia} | Cta ${c.numeroConta} - ${c.banco}`
 
   // Eventos filtrados pelo projeto selecionado ou somente avulsos
@@ -102,6 +116,7 @@ export default function ConsolidacaoEventosPage() {
 
   const onProjetoChange = (projetoId: string) => {
     setForm(p => ({ ...p, projetoId, eventoId: '', eventoAvulso: false }))
+    setFinanceiro(null)
   }
 
   const onAvulsoChange = (checked: boolean) => {
@@ -112,6 +127,7 @@ export default function ConsolidacaoEventosPage() {
       eventoId: '',
       projetoVinculado: checked ? AVULSO_LABEL : '',
     }))
+    setFinanceiro(null)
   }
 
   const onEventoChange = (eventoId: string) => {
@@ -120,10 +136,11 @@ export default function ConsolidacaoEventosPage() {
       ? projetos.find(p => p.id === ev.projetoVinculadoId)?.nome || ''
       : AVULSO_LABEL
     setForm(p => ({ ...p, eventoId, projetoVinculado: proj }))
+    fetchFinanceiro(eventoId)
   }
 
   const openCreate = () => {
-    setEditing(null); setForm(emptyForm); setModalAlert(null); setModalOpen(true)
+    setEditing(null); setForm(emptyForm); setFinanceiro(null); setModalAlert(null); setModalOpen(true)
   }
 
   const openEdit = (row: Record<string, unknown>) => {
@@ -149,17 +166,19 @@ export default function ConsolidacaoEventosPage() {
       dataLimiteAjuste: row.dataLimiteAjuste ? String(row.dataLimiteAjuste).slice(0, 10) : '',
       arquivosReferencia: String(row.arquivosReferencia || ''),
     })
+    fetchFinanceiro(String(row.eventoId || ''))
     setModalOpen(true)
   }
+
+  const saldoNegativo = financeiro !== null && financeiro.saldo < 0
 
   const handleSave = async () => {
     if (!form.eventoId) { showToast('Selecione um evento', 'error'); return }
     if (!form.dataConclusaoReal) { showToast('Informe a data real de conclusão', 'error'); return }
     if (!form.eventoAvulso && !form.projetoId) { showToast('Selecione um projeto ou marque "Evento avulso"', 'error'); return }
-    const secIIIRequired = !form.saldoPositivo && (!form.nomeOperador || !form.metodoAjuste || !form.contaReceptoraId)
-    if (secIIIRequired) { showToast('Marque "Saldo ≥ R$0,00" ou preencha os campos de ajuste financeiro', 'error'); return }
     setSaving(true)
     try {
+      const saldoOrcamento = financeiro?.saldo ?? 0
       const payload = {
         eventoId: form.eventoId,
         projetoVinculado: form.projetoVinculado || AVULSO_LABEL,
@@ -168,14 +187,14 @@ export default function ConsolidacaoEventosPage() {
         pendencias: form.pendencias || null,
         acoesPositivas: form.acoesPositivas || null,
         licoesAprendidas: form.licoesAprendidas || null,
-        saldoPositivo: form.saldoPositivo,
-        nomeOperador: form.saldoPositivo ? null : (form.nomeOperador || null),
-        cpfOperador: form.saldoPositivo ? null : (form.cpfOperador || null),
-        metodoAjuste: form.saldoPositivo ? null : (form.metodoAjuste || null),
-        valorAjuste: form.saldoPositivo ? null : (form.valorAjuste ? parseBRL(form.valorAjuste) : null),
-        contaReceptoraId: form.saldoPositivo ? null : (form.contaReceptoraId || null),
-        dataLimiteAjuste: form.saldoPositivo ? null : (form.dataLimiteAjuste || null),
-        arquivosReferencia: form.arquivosReferencia||null
+        saldoOrcamento,
+        nomeOperador: saldoNegativo ? (form.nomeOperador || null) : null,
+        cpfOperador: saldoNegativo ? (form.cpfOperador || null) : null,
+        metodoAjuste: saldoNegativo ? (form.metodoAjuste || null) : null,
+        valorAjuste: saldoNegativo ? (form.valorAjuste ? parseBRL(form.valorAjuste) : null) : null,
+        contaReceptoraId: saldoNegativo ? (form.contaReceptoraId || null) : null,
+        dataLimiteAjuste: saldoNegativo ? (form.dataLimiteAjuste || null) : null,
+        arquivosReferencia: form.arquivosReferencia || null
       }
       const url = editing ? `/api/consolidacoes-evento/${editing.id}` : '/api/consolidacoes-evento'
       const res = await fetch(url, { method: editing ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
@@ -196,8 +215,12 @@ export default function ConsolidacaoEventosPage() {
   const nomeEvento = (v: unknown) => eventos.find(e => e.id === String(v))?.nome || '-'
   const renderSaldo = (v: unknown) => {
     const n = Number(v)
-    const cls = n < 0 ? 'text-red-600 font-medium' : 'text-green-700 font-medium'
-    return <span className={cls}>{fmtMoney(n)}</span>
+    return (
+      <span className={`flex items-center gap-1.5 ${n < 0 ? 'text-red-600 font-medium' : 'text-green-700 font-medium'}`}>
+        {n < 0 && <AlertTriangle className="w-3.5 h-3.5" />}
+        {fmtMoney(n)}
+      </span>
+    )
   }
 
   return (
@@ -349,37 +372,88 @@ export default function ConsolidacaoEventosPage() {
             <h3 className="text-sm font-semibold text-navy-700 uppercase tracking-wide mb-3 pb-2 border-b border-cream-200">
               Seção III — Financeiro do Evento
             </h3>
-            {/* Checkbox obrigatório */}
-            <div className={`flex items-start gap-3 p-3 rounded-xl border mb-4 cursor-pointer select-none ${form.saldoPositivo ? 'bg-green-50 border-green-300' : 'bg-cream-50 border-cream-300'}`}
-              onClick={() => { const next = !form.saldoPositivo; setField('saldoPositivo', next); if (next) { setField('nomeOperador',''); setField('cpfOperador',''); setField('metodoAjuste',''); setField('valorAjuste',''); setField('contaReceptoraId',''); setField('dataLimiteAjuste','') } }}>
-              <div className={`mt-0.5 w-5 h-5 rounded flex items-center justify-center border-2 flex-shrink-0 transition-colors ${form.saldoPositivo ? 'bg-green-500 border-green-500' : 'bg-white border-navy-300'}`}>
-                {form.saldoPositivo && <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7"/></svg>}
+
+            {/* Saldo calculado */}
+            {!form.eventoId ? (
+              <div className="bg-cream-50 border border-cream-200 rounded-xl p-4 text-sm text-navy-400 text-center">
+                Selecione um evento para visualizar o saldo financeiro.
               </div>
-              <div>
-                <p className="text-sm font-semibold text-navy-700">Saldo do Evento ≥ R$ 0,00 <span className="required-star">*</span></p>
-                <p className="text-xs text-navy-400 mt-0.5">Marque esta opção caso o saldo do evento seja positivo ou zerado — os campos de ajuste financeiro não serão necessários.</p>
+            ) : financeiroLoading ? (
+              <div className="bg-cream-50 border border-cream-200 rounded-xl p-4 text-sm text-navy-400 text-center">
+                Calculando saldo...
               </div>
-            </div>
-            <div className={`grid grid-cols-1 md:grid-cols-2 gap-4 transition-opacity ${form.saldoPositivo ? 'opacity-40 pointer-events-none' : ''}`}>
-              <div className="form-group"><label>Nome do Operador/Tesoureiro{!form.saldoPositivo && <span className="required-star">*</span>}</label>
-                <input type="text" value={form.nomeOperador} onChange={e=>setField('nomeOperador',e.target.value)} className="form-input" disabled={form.saldoPositivo} /></div>
-              <div className="form-group"><label>CPF do Operador</label>
-                <input type="text" placeholder="000.000.000-00" value={form.cpfOperador} onChange={e=>setField('cpfOperador',e.target.value)} className="form-input" disabled={form.saldoPositivo} /></div>
-              <div className="form-group"><label>Método de Pagamento{!form.saldoPositivo && <span className="required-star">*</span>}</label>
-                <select value={form.metodoAjuste} onChange={e=>setField('metodoAjuste',e.target.value)} className="form-input" disabled={form.saldoPositivo}>
-                  <option value="">Selecione...</option>
-                  {metodos.map(m=><option key={m.id} value={m.id}>{m.nome}</option>)}
-                </select></div>
-              <CurrencyInput label="Valor do Ajuste (R$)" value={form.valorAjuste} onChange={v=>setField('valorAjuste',v)}/>
-              <div className="form-group"><label>Conta Receptora do Ajuste{!form.saldoPositivo && <span className="required-star">*</span>}</label>
-                <select value={form.contaReceptoraId} onChange={e=>setField('contaReceptoraId',e.target.value)} className="form-input" disabled={form.saldoPositivo}>
-                  <option value="">Selecione...</option>
-                  {contas.map(c=><option key={c.id} value={c.id}>{contaLabel(c)}</option>)}
-                </select></div>
-              <div className="form-group"><label>Data Limite para o Ajuste</label>
-                <DateInput label="Data Limite para Ajuste" value={form.dataLimiteAjuste} onChange={v=>setField('dataLimiteAjuste',v)}/></div>
-            </div>
+            ) : financeiro ? (
+              <div className={`rounded-xl border p-4 mb-5 ${saldoNegativo ? 'bg-red-50 border-red-200' : 'bg-green-50 border-green-200'}`}>
+                <p className={`text-xs font-semibold uppercase tracking-wide mb-3 ${saldoNegativo ? 'text-red-700' : 'text-green-700'}`}>
+                  {saldoNegativo
+                    ? '⚠️ Pendência Financeira — Saldo negativo'
+                    : '✅ Saldo financeiro positivo'}
+                </p>
+                <div className="grid grid-cols-3 gap-3 text-sm">
+                  <div className="bg-white rounded-lg p-3 border border-green-100">
+                    <div className="flex items-center gap-1.5 text-green-700 mb-1">
+                      <TrendingUp className="w-3.5 h-3.5" />
+                      <span className="text-xs font-medium uppercase">Receitas</span>
+                    </div>
+                    <p className="font-bold text-green-800">{fmtMoney(financeiro.receitas)}</p>
+                  </div>
+                  <div className="bg-white rounded-lg p-3 border border-red-100">
+                    <div className="flex items-center gap-1.5 text-red-600 mb-1">
+                      <TrendingDown className="w-3.5 h-3.5" />
+                      <span className="text-xs font-medium uppercase">Despesas</span>
+                    </div>
+                    <p className="font-bold text-red-700">{fmtMoney(financeiro.despesas)}</p>
+                  </div>
+                  <div className={`bg-white rounded-lg p-3 border ${saldoNegativo ? 'border-red-200' : 'border-green-200'}`}>
+                    <div className={`flex items-center gap-1.5 mb-1 ${saldoNegativo ? 'text-red-600' : 'text-green-700'}`}>
+                      {saldoNegativo ? <AlertTriangle className="w-3.5 h-3.5" /> : <TrendingUp className="w-3.5 h-3.5" />}
+                      <span className="text-xs font-medium uppercase">Saldo</span>
+                    </div>
+                    <p className={`font-bold ${saldoNegativo ? 'text-red-700' : 'text-green-800'}`}>{fmtMoney(financeiro.saldo)}</p>
+                  </div>
+                </div>
+                {saldoNegativo && (
+                  <p className="text-xs text-red-600 mt-3">
+                    O evento pode ser consolidado mesmo com saldo negativo. Preencha os campos de ajuste financeiro abaixo se houver um plano de regularização.
+                  </p>
+                )}
+              </div>
+            ) : null}
+
+            {/* Campos de ajuste — só aparecem quando saldo negativo */}
+            {saldoNegativo && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="form-group">
+                  <label>Nome do Operador/Tesoureiro</label>
+                  <input type="text" value={form.nomeOperador} onChange={e=>setField('nomeOperador',e.target.value)} className="form-input" />
+                </div>
+                <div className="form-group">
+                  <label>CPF do Operador</label>
+                  <input type="text" placeholder="000.000.000-00" value={form.cpfOperador} onChange={e=>setField('cpfOperador',e.target.value)} className="form-input" />
+                </div>
+                <div className="form-group">
+                  <label>Método de Pagamento</label>
+                  <select value={form.metodoAjuste} onChange={e=>setField('metodoAjuste',e.target.value)} className="form-input">
+                    <option value="">Selecione...</option>
+                    {metodos.map(m=><option key={m.id} value={m.id}>{m.nome}</option>)}
+                  </select>
+                </div>
+                <CurrencyInput label="Valor do Ajuste (R$)" value={form.valorAjuste} onChange={v=>setField('valorAjuste',v)}/>
+                <div className="form-group">
+                  <label>Conta Receptora do Ajuste</label>
+                  <select value={form.contaReceptoraId} onChange={e=>setField('contaReceptoraId',e.target.value)} className="form-input">
+                    <option value="">Selecione...</option>
+                    {contas.map(c=><option key={c.id} value={c.id}>{contaLabel(c)}</option>)}
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label>Data Limite para o Ajuste</label>
+                  <DateInput label="Data Limite para Ajuste" value={form.dataLimiteAjuste} onChange={v=>setField('dataLimiteAjuste',v)}/>
+                </div>
+              </div>
+            )}
           </div>
+
           <div className="md:col-span-2">
             <FileUpload
               label="Arquivos de Referência"
