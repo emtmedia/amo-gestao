@@ -15,7 +15,7 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { dataConclusaoReal, dataLimiteAjuste, valorAjuste, ...rest } = body
+    const { dataConclusaoReal, dataLimiteAjuste, valorAjuste, saldoPositivo: _sp, ...rest } = body
     const item = await prisma.consolidacaoProjeto.create({
       data: {
         ...rest,
