@@ -103,7 +103,7 @@ export default function Page() {
       if (jd.success) setDocs(jd.data)
       if (jc.success) setCats(jc.data)
       // Role from the authoritative session endpoint
-      if (jme.usuario) setIsAdmin(jme.usuario.role === 'admin')
+      if (jme.usuario) setIsAdmin(['admin', 'superadmin'].includes(jme.usuario.role))
     } finally { setLoading(false) }
   }, [])
   useEffect(() => { fetchData() }, [fetchData])
