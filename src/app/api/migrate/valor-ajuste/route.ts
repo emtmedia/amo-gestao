@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
 
-export async function POST() {
+export async function GET() {
   try {
     await prisma.$executeRawUnsafe(`
       ALTER TABLE "ConsolidacaoProjeto" ADD COLUMN IF NOT EXISTS "valorAjuste" DOUBLE PRECISION;
