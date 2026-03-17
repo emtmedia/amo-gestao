@@ -919,3 +919,24 @@ model FuncaoCargoVoluntario {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
+
+// ============================================
+// 66. RECIBO DE PAGAMENTO
+// ============================================
+model ReciboContador {
+  id     Int @id @default(1)
+  ultimo Int @default(0)
+}
+
+model Recibo {
+  id            String   @id @default(cuid())
+  numero        String   @unique
+  sequencia     Int
+  data          String
+  hora          String
+  nomeRecebedor String
+  cpfRecebedor  String
+  valor         Float
+  descricao     String
+  createdAt     DateTime @default(now())
+}
