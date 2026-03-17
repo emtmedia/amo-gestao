@@ -7,7 +7,7 @@ export async function POST() {
   try {
     const tables = [
       'DespesaConsumo', 'DespesaDigital', 'DespesaConservacao',
-      'DespesaLocacao', 'DespesaExterna', 'DespesaCopaCozinha'
+      'DespesaLocacao', 'DespesaServicoExterno', 'DespesaCopaCozinha'
     ]
     for (const table of tables) {
       await prisma.$executeRawUnsafe(
