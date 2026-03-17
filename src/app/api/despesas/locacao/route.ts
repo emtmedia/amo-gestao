@@ -15,19 +15,19 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const dateFields = ['dataPagamento']
-    for (const f of dateFields) {
-      if (body[f] && typeof body[f] === 'string') body[f] = new Date(body[f]).toISOString()
+    const data = {
+      fornecedorId:          body.fornecedorId,
+      itemAlugadoId:         body.itemAlugadoId,
+      dataPagamento:         body.dataPagamento ? new Date(body.dataPagamento).toISOString() : null,
+      valorLocacao:          parseFloat(body.valorLocacao ?? body.valorTitulo ?? 0),
+      metodoTransferenciaId: body.metodoTransferenciaId,
+      contaBancariaId:       body.contaBancariaId        || null,
+      projetoDirecionado:    body.projetoDirecionado      || null,
+      eventoDirecionado:     body.eventoDirecionado       || null,
+      observacoes:           body.observacoes             || null,
+      arquivosReferencia:    body.arquivosReferencia      || null,
     }
-    const numFields = ['valorTitulo', 'valorLocacao', 'valorPagamento']
-    for (const f of numFields) {
-      if (body[f] !== undefined) body[f] = parseFloat(body[f])
-    }
-    const optionals = ['observacoes', 'arquivosReferencia', 'projetoDirecionado', 'eventoDirecionado']
-    for (const f of optionals) {
-      if (body[f] === '') body[f] = null
-    }
-    const item = await prisma.despesaLocacao.create({ data: body })
+    const item = await prisma.despesaLocacao.create({ data })
     await logAudit("CRIAR", "Despesa Locação", item.id, `Criado: ${JSON.stringify(body).substring(0,200)}`)
     return NextResponse.json({ success: true, data: item })
   } catch (error: unknown) {

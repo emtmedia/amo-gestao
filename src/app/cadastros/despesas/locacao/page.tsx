@@ -16,7 +16,7 @@ interface Metodo { id: string; nome: string }
 interface TipoServico { id: string; nome: string }
 interface Opcao { id: string; nome: string }
 
-const emptyForm = { fornecedorId:'', itemAlugadoId:'', dataVencimento:'', valorTitulo:'', dataPagamento:'', contaBancariaId:'', metodoTransferenciaId:'', projetoDirecionado:'', eventoDirecionado:'', observacoes:'', arquivosReferencia: '' }
+const emptyForm = { fornecedorId:'', itemAlugadoId:'', valorLocacao:'', dataPagamento:'', contaBancariaId:'', metodoTransferenciaId:'', projetoDirecionado:'', eventoDirecionado:'', observacoes:'', arquivosReferencia: '' }
 
 export default function Page() {
   const [data, setData] = useState<Desp[]>([])
@@ -64,10 +64,10 @@ export default function Page() {
   }
 
   const handleSave = async () => {
-    if (!form.fornecedorId || !form.itemAlugadoId || !form.valorTitulo || !form.dataPagamento || !form.metodoTransferenciaId) { showToast('Preencha todos os campos obrigatórios','error'); return }
+    if (!form.fornecedorId || !form.itemAlugadoId || !form.valorLocacao || !form.dataPagamento || !form.metodoTransferenciaId) { showToast('Preencha todos os campos obrigatórios','error'); return }
     setSaving(true)
     try {
-      const payload = { ...form, valorTitulo: parseBRL(form.valorTitulo), contaBancariaId: form.contaBancariaId||null, observacoes: form.observacoes||null, arquivosReferencia: form.arquivosReferencia||null, projetoDirecionado: form.projetoDirecionado||null, eventoDirecionado: form.eventoDirecionado||null }
+      const payload = { ...form, valorLocacao: parseBRL(form.valorLocacao), contaBancariaId: form.contaBancariaId||null, observacoes: form.observacoes||null, arquivosReferencia: form.arquivosReferencia||null, projetoDirecionado: form.projetoDirecionado||null, eventoDirecionado: form.eventoDirecionado||null }
       const res = await fetch(editing ? `/api/despesas/locacao/${editing.id}` : '/api/despesas/locacao', { method: editing?'PUT':'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) })
       const j = await res.json()
       if (j.success) { showToast(editing?'Atualizado!':'Registrado!'); setModalOpen(false); fetchData() }
@@ -83,7 +83,7 @@ export default function Page() {
   const fmtItemAlug = (v: unknown) => { const n = tiposServico.find(t => t.id === String(v)); return n ? n.nome : String(v) }
 
   const filteredEventos = filterEventosByProjeto(eventos as any, form.projetoDirecionado)
-  const cols = [{key:'fornecedorId',label:'Fornecedor',render:fmtNomeForn},{key:'itemAlugadoId',label:'Item Alugado',render:fmtItemAlug},{key:'valorTitulo',label:'Valor',render:(v: unknown)=>fmtMoney(Number(v))},{key:'dataPagamento',label:'Pagamento',render:(v: unknown)=>fmtDate(String(v))},{key:'metodoTransferenciaId',label:'Método Pgto',render:(v: unknown)=>metodos.find(m=>m.id===String(v))?.nome||'-'},{key:'projetoDirecionado',label:'Projeto',render:(v: unknown)=>v?String(v).substring(0,20):<span className="text-navy-300">—</span>},{key:'eventoDirecionado',label:'Evento',render:(v: unknown)=>v?String(v).substring(0,20):<span className="text-navy-300">—</span>}]
+  const cols = [{key:'fornecedorId',label:'Fornecedor',render:fmtNomeForn},{key:'itemAlugadoId',label:'Item Alugado',render:fmtItemAlug},{key:'valorLocacao',label:'Valor',render:(v: unknown)=>fmtMoney(Number(v))},{key:'dataPagamento',label:'Pagamento',render:(v: unknown)=>fmtDate(String(v))},{key:'metodoTransferenciaId',label:'Método Pgto',render:(v: unknown)=>metodos.find(m=>m.id===String(v))?.nome||'-'},{key:'projetoDirecionado',label:'Projeto',render:(v: unknown)=>v?String(v).substring(0,20):<span className="text-navy-300">—</span>},{key:'eventoDirecionado',label:'Evento',render:(v: unknown)=>v?String(v).substring(0,20):<span className="text-navy-300">—</span>}]
   return (
     <div>
       {toast && <div className={`fixed top-4 right-4 z-[9999] px-4 py-3 rounded-xl shadow-lg text-sm font-medium ${toast.type==='success'?'bg-green-50 text-green-800 border border-green-200':'bg-red-50 text-red-800 border border-red-200'}`}>{toast.msg}</div>}
@@ -96,8 +96,7 @@ export default function Page() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="form-group md:col-span-2"><label>Fornecedor<span className="required-star">*</span></label><select value={form.fornecedorId} onChange={e=>setForm(p=>({...p,fornecedorId:e.target.value}))} className="form-input"><option value="">Selecione...</option>{fornecedores.map(f=><option key={f.id} value={f.id}>{f.nome}</option>)}</select></div>
           <div className="form-group md:col-span-2"><label>Item Alugado<span className="required-star">*</span></label><select value={form.itemAlugadoId} onChange={e=>setForm(p=>({...p,itemAlugadoId:e.target.value}))} className="form-input"><option value="">Selecione...</option>{tiposServico.map(t=><option key={t.id} value={t.id}>{t.nome}</option>)}</select></div>
-          <DateInput label="Data de Vencimento" value={form.dataVencimento} onChange={v=>setForm(p=>({...p,dataVencimento:v}))}/>
-          <CurrencyInput label="Valor do Título (R$)" required value={form.valorTitulo} onChange={v=>setForm(p=>({...p,valorTitulo:v}))}/>
+          <CurrencyInput label="Valor da Locação (R$)" required value={form.valorLocacao} onChange={v=>setForm(p=>({...p,valorLocacao:v}))}/>
           <DateInput label="Data de Pagamento" required value={form.dataPagamento} onChange={v=>setForm(p=>({...p,dataPagamento:v}))}/>
           <ContaBancariaSelect contas={contas} selectedId={form.contaBancariaId} onChange={v=>setForm(p=>({...p,contaBancariaId:v}))} />
           <div className="form-group"><label>Método de Transferência<span className="required-star">*</span></label><select value={form.metodoTransferenciaId} onChange={e=>setForm(p=>({...p,metodoTransferenciaId:e.target.value}))} className="form-input"><option value="">Selecione...</option>{metodos.map(m=><option key={m.id} value={m.id}>{m.nome}</option>)}</select></div>
