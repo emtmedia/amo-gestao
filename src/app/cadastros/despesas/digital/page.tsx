@@ -89,7 +89,7 @@ export default function Page() {
   }
 
   const filteredEventos = filterEventosByProjeto(eventos as any, form.projetoDirecionado)
-  const cols = [{key:'fornecedorId',label:'Fornecedor',render:fmtNomeForn},{key:'tipoServicoId',label:'Tipo Digital',render:fmtTipoDigital},{key:'valorTitulo',label:'Valor',render:(v: unknown)=>fmtMoney(Number(v))},{key:'dataVencimento',label:'Vencimento',render:(v: unknown)=>fmtDate(String(v))},{key:'dataPagamento',label:'Pagamento',render:(v: unknown)=>fmtDate(String(v))},{key:'metodoTransferenciaId',label:'Método Pgto',render:(v: unknown)=>metodos.find(m=>m.id===String(v))?.nome||'-'},{key:'projetoDirecionado',label:'Projeto',render:(v: unknown)=>v?String(v).substring(0,20):<span className="text-navy-300">—</span>}]
+  const cols = [{key:'fornecedorId',label:'Fornecedor',render:fmtNomeForn},{key:'tipoServicoId',label:'Tipo Digital',render:fmtTipoDigital},{key:'valorTitulo',label:'Valor',render:(v: unknown)=>fmtMoney(Number(v))},{key:'dataVencimento',label:'Vencimento',render:(v: unknown)=>fmtDate(String(v))},{key:'dataPagamento',label:'Pagamento',render:(v: unknown)=>fmtDate(String(v))},{key:'metodoTransferenciaId',label:'Método Pgto',render:(v: unknown)=>metodos.find(m=>m.id===String(v))?.nome||'-'},{key:'projetoDirecionado',label:'Projeto',render:(v: unknown)=>{ const p=projetos.find(x=>x.id===String(v)); return p?<span>{p.nome}</span>:<span className="text-navy-300">—</span>}}]
   return (
     <div>
       {toast && <div className={`fixed top-4 right-4 z-[9999] px-4 py-3 rounded-xl shadow-lg text-sm font-medium ${toast.type==='success'?'bg-green-50 text-green-800 border border-green-200':'bg-red-50 text-red-800 border border-red-200'}`}>{toast.msg}</div>}
