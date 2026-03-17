@@ -91,7 +91,37 @@ export default function ReciboPage() {
   <style>
     @page { size: A4 portrait; margin: 20mm; }
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: Georgia, "Times New Roman", serif; color: #222; font-size: 15px; line-height: 1.9; }
+    body { background: #e5e7eb; font-family: Georgia, "Times New Roman", serif; color: #222; font-size: 15px; line-height: 1.9; }
+
+    /* Barra de ações (oculta na impressão) */
+    .toolbar {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+      background: #1a1a2e; color: white;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 12px 24px; gap: 12px;
+      font-family: system-ui, sans-serif; font-size: 14px;
+    }
+    .toolbar-title { font-weight: 600; letter-spacing: 0.5px; }
+    .toolbar-btns { display: flex; gap: 10px; }
+    .btn-print {
+      background: #4f46e5; color: white; border: none; border-radius: 6px;
+      padding: 8px 20px; font-size: 14px; font-weight: 600; cursor: pointer;
+      display: flex; align-items: center; gap: 6px;
+    }
+    .btn-print:hover { background: #4338ca; }
+    .btn-close {
+      background: transparent; color: #9ca3af; border: 1px solid #374151;
+      border-radius: 6px; padding: 8px 16px; font-size: 14px; cursor: pointer;
+    }
+    .btn-close:hover { color: white; border-color: #6b7280; }
+
+    /* Página A4 */
+    .page-wrapper { padding: 72px 24px 24px; display: flex; justify-content: center; }
+    .a4 {
+      background: white; width: 210mm; min-height: 297mm;
+      padding: 20mm; box-shadow: 0 4px 32px rgba(0,0,0,0.18);
+    }
+
     .cabecalho { text-align: center; border-bottom: 2px solid #1a1a2e; padding-bottom: 16px; margin-bottom: 24px; }
     .org { font-size: 22px; font-weight: 900; letter-spacing: 2px; color: #1a1a2e; }
     .sub { font-size: 13px; font-weight: 600; color: #333; margin-top: 2px; letter-spacing: 1px; }
@@ -105,37 +135,55 @@ export default function ReciboPage() {
     .nome-assinatura { font-size: 14px; font-weight: 600; }
     .cpf-assinatura { font-size: 13px; color: #555; margin-top: 4px; }
     .rodape { margin-top: 60px; padding-top: 16px; border-top: 1px solid #ddd; text-align: center; font-size: 10px; color: #aaa; }
+
+    @media print {
+      body { background: white; }
+      .toolbar { display: none; }
+      .page-wrapper { padding: 0; }
+      .a4 { box-shadow: none; width: 100%; min-height: unset; padding: 0; }
+    }
   </style>
 </head>
 <body>
-  <div class="cabecalho">
-    <div class="org">🕊️ AMO</div>
-    <div class="sub">ASSOCIAÇÃO MISSÃO ÔMEGA</div>
-    <div class="titulo">Recibo de Pagamento</div>
-    <div class="meta">
-      <span class="numero">${data.numero}</span>
-      <span>${fmtDate(data.data)}${data.hora ? ` — ${data.hora}` : ''}</span>
+  <div class="toolbar">
+    <span class="toolbar-title">📄 Recibo ${data.numero} — ${data.nomeRecebedor}</span>
+    <div class="toolbar-btns">
+      <button class="btn-print" onclick="window.print()">🖨️ Imprimir / Salvar PDF</button>
+      <button class="btn-close" onclick="window.close()">Fechar</button>
     </div>
   </div>
-  <p class="corpo">
-    Eu, <span class="destaque">${data.nomeRecebedor}</span>, recebi da
-    <strong>Associação Missão Ômega</strong> o valor de
-    <span class="destaque">${valorFmt}</span>
-    pela seguinte prestação de serviço:
-    <span class="destaque">${data.descricao}</span>.
-  </p>
-  <div class="assinatura">
-    <div class="linha-assinatura"></div>
-    <div class="nome-assinatura">${data.nomeRecebedor}</div>
-    <div class="cpf-assinatura">CPF: ${data.cpfRecebedor}</div>
+
+  <div class="page-wrapper">
+    <div class="a4">
+      <div class="cabecalho">
+        <div class="org">🕊️ AMO</div>
+        <div class="sub">ASSOCIAÇÃO MISSÃO ÔMEGA</div>
+        <div class="titulo">Recibo de Pagamento</div>
+        <div class="meta">
+          <span class="numero">${data.numero}</span>
+          <span>${fmtDate(data.data)}${data.hora ? ` — ${data.hora}` : ''}</span>
+        </div>
+      </div>
+      <p class="corpo">
+        Eu, <span class="destaque">${data.nomeRecebedor}</span>, recebi da
+        <strong>Associação Missão Ômega</strong> o valor de
+        <span class="destaque">${valorFmt}</span>
+        pela seguinte prestação de serviço:
+        <span class="destaque">${data.descricao}</span>.
+      </p>
+      <div class="assinatura">
+        <div class="linha-assinatura"></div>
+        <div class="nome-assinatura">${data.nomeRecebedor}</div>
+        <div class="cpf-assinatura">CPF: ${data.cpfRecebedor}</div>
+      </div>
+      <div class="rodape">Documento emitido pelo Sistema de Gestão AMO · ${data.numero}</div>
+    </div>
   </div>
-  <div class="rodape">Documento emitido pelo Sistema de Gestão AMO · ${data.numero}</div>
-  <script>window.onload = function(){ window.print(); window.onafterprint = function(){ window.close(); }; }</script>
 </body>
 </html>`
 
-    const win = window.open('', '_blank', 'width=900,height=1100')
-    if (win) { win.document.write(html); win.document.close() }
+    const win = window.open('', '_blank', 'width=960,height=1000')
+    if (win) { win.document.write(html); win.document.close(); win.focus() }
   }
 
   const numero = numeroEmitido ?? proximoNumero
