@@ -14,7 +14,7 @@ interface Forn { id: string; nome: string }
 interface Conta { id: string; tipo: string; banco: string; agencia: string; numeroConta: string }
 interface Metodo { id: string; nome: string }
 interface TipoServico { id: string; nome: string }
-interface Opcao { id: string; nome: string }
+interface Opcao { id: string; nome: string; projetoVinculadoId?: string | null }
 
 const emptyForm = { fornecedorId:'', itemAlugadoId:'', valorLocacao:'', dataPagamento:'', contaBancariaId:'', metodoTransferenciaId:'', projetoDirecionado:'', eventoDirecionado:'', observacoes:'', arquivosReferencia: '' }
 
@@ -79,6 +79,12 @@ export default function Page() {
     try { const r = await fetch(`/api/despesas/locacao/${id}`,{method:'DELETE'}); const j = await r.json(); if (j.success) { showToast('Removido!'); setDeleteConfirm(null); fetchData() } } catch { showToast('Erro','error') }
   }
 
+  const handleEventoChange = (eventoId: string) => {
+    const evento = eventos.find(e => e.id === eventoId)
+    const projetoDirecionado = eventoId && evento?.projetoVinculadoId ? evento.projetoVinculadoId : form.projetoDirecionado
+    setForm(p => ({ ...p, eventoDirecionado: eventoId, projetoDirecionado }))
+  }
+
   const fmtNomeForn = (v: unknown) => { const n = fornecedores.find(f => f.id === String(v)); return n ? n.nome : String(v) }
   const fmtItemAlug = (v: unknown) => { const n = tiposServico.find(t => t.id === String(v)); return n ? n.nome : String(v) }
 
@@ -101,7 +107,7 @@ export default function Page() {
           <ContaBancariaSelect contas={contas} selectedId={form.contaBancariaId} onChange={v=>setForm(p=>({...p,contaBancariaId:v}))} />
           <div className="form-group"><label>Método de Transferência<span className="required-star">*</span></label><select value={form.metodoTransferenciaId} onChange={e=>setForm(p=>({...p,metodoTransferenciaId:e.target.value}))} className="form-input"><option value="">Selecione...</option>{metodos.map(m=><option key={m.id} value={m.id}>{m.nome}</option>)}</select></div>
           <div className="form-group"><label>Projeto Relacionado</label><select value={form.projetoDirecionado} onChange={e=>setForm(p=>({...p,projetoDirecionado:e.target.value}))} className="form-input"><option value="">Administração Geral</option>{projetos.map(p=><option key={p.id} value={p.id}>{p.nome}</option>)}</select></div>
-          <div className="form-group"><label>Evento Relacionado</label><select value={form.eventoDirecionado} onChange={e=>setForm(p=>({...p,eventoDirecionado:e.target.value}))} className="form-input"><option value="">Sem Evento</option>{filteredEventos.map(e=><option key={e.id} value={e.id}>{e.nome}</option>)}</select></div>
+          <div className="form-group"><label>Evento Relacionado</label><select value={form.eventoDirecionado} onChange={e=>handleEventoChange(e.target.value)} className="form-input"><option value="">Sem Evento</option>{filteredEventos.map(e=><option key={e.id} value={e.id}>{e.nome}</option>)}</select></div>
           <div className="md:col-span-2"><div className="form-group"><label>Observações</label><textarea rows={2} value={form.observacoes} onChange={e=>setForm(p=>({...p,observacoes:e.target.value}))} className="form-input resize-none" /></div></div>
           <div className="md:col-span-2">
             <FileUpload
