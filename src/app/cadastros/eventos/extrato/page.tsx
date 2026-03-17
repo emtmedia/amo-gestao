@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect, useCallback } from 'react'
-import { FileText, TrendingUp, TrendingDown, Minus, Printer } from 'lucide-react'
+import { FileText, TrendingUp, TrendingDown, Minus, FileSpreadsheet, FileDown } from 'lucide-react'
 
 interface Lancamento {
   id: string; data: string; tipo: 'entrada' | 'saida'; categoria: string; descricao: string; valor: number; observacoes: string | null
@@ -47,6 +47,38 @@ export default function ExtratoEventoPage() {
     loadExtrato(id)
   }
 
+  const exportCSV = () => {
+    if (!eventoInfo || !totais) return
+    const rows: string[][] = [
+      ['Extrato Financeiro de Evento - ' + eventoInfo.nome],
+      ['Projeto Vinculado: ' + (eventoInfo.projetoNome || 'Avulso')],
+      ['Período: ' + fmtDate(eventoInfo.dataInicio) + ' a ' + fmtDate(eventoInfo.dataEncerramento)],
+      ['Gerado em: ' + new Date().toLocaleDateString('pt-BR') + ' ' + new Date().toLocaleTimeString('pt-BR')],
+      [],
+      ['Data', 'Tipo', 'Categoria', 'Descrição', 'Observações', 'Valor (R$)'],
+      ...transacoes.map(t => [
+        fmtDate(t.data),
+        t.tipo === 'entrada' ? 'Entrada' : 'Saída',
+        t.categoria,
+        t.descricao,
+        t.observacoes || '',
+        (t.tipo === 'entrada' ? t.valor : -t.valor).toFixed(2).replace('.', ','),
+      ]),
+      [],
+      ['', '', '', '', 'Total Entradas', totais.entradas.toFixed(2).replace('.', ',')],
+      ['', '', '', '', 'Total Saídas', totais.saidas.toFixed(2).replace('.', ',')],
+      ['', '', '', '', 'Saldo', totais.saldo.toFixed(2).replace('.', ',')],
+    ]
+    const csv = '\uFEFF' + rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(';')).join('\n')
+    const a = Object.assign(document.createElement('a'), {
+      href: URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' })),
+      download: `extrato-evento-${eventoInfo.nome.replace(/[^\w]/g, '-')}.csv`,
+    })
+    a.click(); URL.revokeObjectURL(a.href)
+  }
+
+  const exportPDF = () => window.print()
+
   const categorias = [...new Set(transacoes.map(t => t.categoria))].sort()
   const filtered = transacoes.filter(t => {
     if (filtroTipo !== 'todos' && t.tipo !== filtroTipo) return false
@@ -73,9 +105,14 @@ export default function ExtratoEventoPage() {
           </div>
         </div>
         {eventoInfo && (
-          <button onClick={() => window.print()} className="btn-secondary flex items-center gap-2">
-            <Printer className="w-4 h-4" /> Imprimir / PDF
-          </button>
+          <div className="flex items-center gap-2">
+            <button onClick={exportCSV} className="btn-secondary flex items-center gap-2">
+              <FileSpreadsheet className="w-4 h-4" /> Exportar Planilha
+            </button>
+            <button onClick={exportPDF} className="btn-secondary flex items-center gap-2">
+              <FileDown className="w-4 h-4" /> Gerar PDF
+            </button>
+          </div>
         )}
       </div>
 

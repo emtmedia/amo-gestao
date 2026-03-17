@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect, useCallback } from 'react'
-import { FileText, TrendingUp, TrendingDown, Minus, ChevronDown, ChevronRight, Printer } from 'lucide-react'
+import { FileText, TrendingUp, TrendingDown, Minus, ChevronDown, ChevronRight, FileSpreadsheet, FileDown } from 'lucide-react'
 
 interface Lancamento {
   id: string; data: string; tipo: 'entrada' | 'saida'; categoria: string; descricao: string; valor: number; observacoes: string | null
@@ -127,6 +127,55 @@ export default function ExtratoProjetoPage() {
     fetch('/api/projetos').then(r => r.json()).then(j => { if (j.success) setProjetos(j.data) })
   }, [])
 
+  const exportCSV = () => {
+    if (!projetoInfo || !direto || !totaisGeral) return
+    const fmtNum = (v: number) => v.toFixed(2).replace('.', ',')
+    const rows: string[][] = [
+      ['Extrato Financeiro de Projeto - ' + projetoInfo.nome],
+      ['Período: ' + fmtDate(projetoInfo.dataInicio) + ' a ' + fmtDate(projetoInfo.dataEncerramento)],
+      ['Gerado em: ' + new Date().toLocaleDateString('pt-BR') + ' ' + new Date().toLocaleTimeString('pt-BR')],
+      [],
+      ['RESUMO GERAL'],
+      ['Total Entradas', fmtNum(totaisGeral.entradas)],
+      ['Total Saídas', fmtNum(totaisGeral.saidas)],
+      ['Saldo Geral', fmtNum(totaisGeral.saldo)],
+      [],
+    ]
+    const addSecao = (titulo: string, transacoes: Lancamento[], totais: Totais) => {
+      rows.push([titulo.toUpperCase()])
+      rows.push(['Data', 'Tipo', 'Categoria', 'Descrição', 'Observações', 'Valor (R$)'])
+      if (transacoes.length === 0) {
+        rows.push(['(Sem lançamentos)'])
+      } else {
+        transacoes.forEach(t => rows.push([
+          fmtDate(t.data),
+          t.tipo === 'entrada' ? 'Entrada' : 'Saída',
+          t.categoria,
+          t.descricao,
+          t.observacoes || '',
+          (t.tipo === 'entrada' ? t.valor : -t.valor).toFixed(2).replace('.', ','),
+        ]))
+      }
+      rows.push(['', '', '', '', 'Entradas', fmtNum(totais.entradas)])
+      rows.push(['', '', '', '', 'Saídas', fmtNum(totais.saidas)])
+      rows.push(['', '', '', '', 'Saldo', fmtNum(totais.saldo)])
+      rows.push([])
+    }
+    addSecao('Lançamentos Diretos no Projeto', direto.transacoes, direto.totais)
+    eventos.forEach(ev => addSecao(
+      'Evento: ' + ev.evento.nome + ' (' + fmtDate(ev.evento.dataInicio) + ' a ' + fmtDate(ev.evento.dataEncerramento) + ')',
+      ev.transacoes, ev.totais
+    ))
+    const csv = '\uFEFF' + rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(';')).join('\n')
+    const a = Object.assign(document.createElement('a'), {
+      href: URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' })),
+      download: `extrato-projeto-${projetoInfo.nome.replace(/[^\w]/g, '-')}.csv`,
+    })
+    a.click(); URL.revokeObjectURL(a.href)
+  }
+
+  const exportPDF = () => window.print()
+
   const loadExtrato = useCallback(async (id: string) => {
     if (!id) { setProjetoInfo(null); setDireto(null); setEventos([]); setTotaisGeral(null); return }
     setLoading(true)
@@ -159,9 +208,14 @@ export default function ExtratoProjetoPage() {
           </div>
         </div>
         {projetoInfo && (
-          <button onClick={() => window.print()} className="btn-secondary flex items-center gap-2">
-            <Printer className="w-4 h-4" /> Imprimir / PDF
-          </button>
+          <div className="flex items-center gap-2">
+            <button onClick={exportCSV} className="btn-secondary flex items-center gap-2">
+              <FileSpreadsheet className="w-4 h-4" /> Exportar Planilha
+            </button>
+            <button onClick={exportPDF} className="btn-secondary flex items-center gap-2">
+              <FileDown className="w-4 h-4" /> Gerar PDF
+            </button>
+          </div>
         )}
       </div>
 
