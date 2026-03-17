@@ -24,7 +24,6 @@ export async function POST(request: Request) {
       return Object.keys(cond).length > 0 ? { [campo]: cond } : {}
     }
 
-    // Usa $transaction para executar TODAS as queries numa única conexão
     const [
       departamentos, projetos, eventos, voluntariosAMO,
       receitasPF, receitasPJ, receitasPublicas,
@@ -32,7 +31,7 @@ export async function POST(request: Request) {
       despesasConsumo, despesasDigitais, despesasConservacao,
       despesasLocacao, despesasExternos, despesasCopa,
       funcionariosCLT, funcionariosPJ, fornecedores,
-    ] = await prisma.$transaction([
+    ] = await Promise.all([
       prisma.departamento.findMany({ select: { nome: true, responsavelPrincipal: true, orcamentoAnual: true } }),
       prisma.projetoFilantropia.findMany({ select: { nome: true, dataInicio: true, dataEncerramento: true, orcamentoEstimado: true, responsavel: true } }),
       prisma.evento.findMany({ select: { nome: true, dataInicio: true, dataEncerramento: true, orcamentoEstimado: true, responsavel: true } }),
@@ -53,8 +52,8 @@ export async function POST(request: Request) {
       prisma.despesaCopaCozinha.findMany({ where: whereData('dataPagamento'), select: { valorPagamento: true, dataPagamento: true } }),
       prisma.funcionarioCLT.findMany({ select: { nomeCompleto: true, cargoId: true, funcaoId: true, salarioMensal: true } }),
       prisma.funcionarioPJ.findMany({ select: { nomeCompleto: true, nomeEmpresa: true, cargoId: true, valorMedicaoMensal: true } }),
-      prisma.fornecedor.findMany({ select: { nome: true, categoria: { select: { nome: true } }, email: true, telefone: true } }),
-    ], { timeout: 15000 })
+      prisma.fornecedor.findMany({ select: { nome: true, categoria: { select: { nome: true } }, subcategoria: { select: { nome: true } }, email: true, telefone: true } }),
+    ])
 
     const fmt = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
     const fmtDate = (d: Date | null | undefined) => d ? new Date(d).toLocaleDateString('pt-BR') : '-'
@@ -109,7 +108,7 @@ export async function POST(request: Request) {
         clt: funcionariosCLT.map(f => ({ n: f.nomeCompleto, s: fmt(Number(f.salarioMensal)) })),
         pj: funcionariosPJ.map(f => ({ n: f.nomeCompleto, emp: f.nomeEmpresa, m: fmt(Number(f.valorMedicaoMensal||0)) })),
       },
-      forn: fornecedores.map(f => ({ n: f.nome, cat: f.categoria?.nome, e: f.email, t: f.telefone })),
+      forn: fornecedores.map(f => ({ n: f.nome, cat: f.categoria?.nome, sub: f.subcategoria?.nome, e: f.email, t: f.telefone })),
       contribPF: receitasPF.map(r => ({ n: r.nomeContribuinte, v: fmt(Number(r.valorContribuicao)), d: fmtDate(r.dataEntrada) })),
       contribPJ: receitasPJ.map(r => ({ n: r.nomeEmpresa, v: fmt(Number(r.valorContribuicao)), d: fmtDate(r.dataEntrada) })),
       outRec: outrasReceitas.map(r => ({ n: r.nomeContribuinte, desc: r.descricaoReceita, v: fmt(Number(r.valorContribuicao)), d: fmtDate(r.dataEntrada) })),
@@ -143,8 +142,8 @@ Legenda campos compactos: n=nome,r=responsável,o=orçamento,i=início,e=encerra
         'anthropic-version': '2023-06-01',
       },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
-        max_tokens: 8000,
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 4096,
         stream: true,
         system: systemPrompt,
         messages: [{ role: 'user', content: userMessage }],
