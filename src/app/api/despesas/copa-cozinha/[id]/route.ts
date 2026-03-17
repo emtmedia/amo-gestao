@@ -16,24 +16,19 @@ export async function GET(_: NextRequest, { params }: { params: { id: string } }
 export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
   try {
     const body = await request.json()
-    // Converte datas string → DateTime ISO
-    const dateFields = ['dataPagamento']
-    for (const f of dateFields) {
-      if (body[f] && typeof body[f] === 'string') body[f] = new Date(body[f]).toISOString()
+    const data = {
+      fornecedorId:          body.fornecedorId,
+      itemCopaCozinhaId:     body.itemCopaCozinhaId,
+      dataPagamento:         body.dataPagamento ? new Date(body.dataPagamento).toISOString() : undefined,
+      valorPagamento:        parseFloat(body.valorPagamento ?? body.valorTitulo ?? 0),
+      metodoTransferenciaId: body.metodoTransferenciaId,
+      contaBancariaId:       body.contaBancariaId     || null,
+      projetoDirecionado:    body.projetoDirecionado   || null,
+      eventoDirecionado:     body.eventoDirecionado    || null,
+      observacoes:           body.observacoes          || null,
+      arquivosReferencia:    body.arquivosReferencia   || null,
     }
-    // Remove campos que não devem ser atualizados
-    delete body.id; delete body.createdAt; delete body.updatedAt
-    // Opcionais: string vazia → null
-    const optionals = ['email','emailContato','emailResponsavel','observacoes','nomeContato','telefoneContato','arquivosReferencia','projetoDirecionado','eventoDirecionado','linkSite','comentarios','outrosBeneficios','nomefantasia','ufId','cidadeId']
-    for (const f of optionals) {
-      if (body[f] === '') body[f] = null
-    }
-    // Numéricos
-    const numFields = ['valorRecurso','valorReceita','valorContribuicao','valorTitulo','valorLocacao','valorPagamento','orcamentoEstimado','salarioMensal','medicaoMensal','orcamentoAnual']
-    for (const f of numFields) {
-      if (body[f] !== undefined && body[f] !== '' && body[f] !== null) body[f] = parseFloat(body[f])
-    }
-    const item = await prisma.despesaCopaCozinha.update({ where: { id: params.id }, data: body })
+    const item = await prisma.despesaCopaCozinha.update({ where: { id: params.id }, data })
     await logAudit("EDITAR", "Despesa Copa", params.id)
     return NextResponse.json({ success: true, data: item })
   } catch (error: unknown) {
