@@ -64,14 +64,13 @@ export default function ProjetosPage() {
     setModalAlert({ type, message: msg }); setTimeout(() => setModalAlert(null), 4000)
   }
 
-  const fetchCidades = async (ufId: string): Promise<Cidade[]> => {
-    if (!ufId) { setCidades([]); return [] }
+  const fetchCidades = async (ufId: string) => {
+    if (!ufId) { setCidades([]); return }
     setLoadingCidades(true)
     try {
       const r = await fetch(`/api/cidades?ufId=${ufId}`)
       const j = await r.json()
-      if (j.success) { setCidades(j.data); return j.data as Cidade[] }
-      return []
+      if (j.success) setCidades(j.data)
     } finally { setLoadingCidades(false) }
   }
 
@@ -106,19 +105,12 @@ export default function ProjetosPage() {
 
   const openCreate = () => { setEditing(null); setForm(emptyForm); setCidades([]); setModalAlert(null); setModalOpen(true) }
 
-  const doEdit = async (row: Projeto) => {
+  const doEdit = (row: Projeto) => {
     setEditing(row)
     const r = row as unknown as Record<string, unknown>
-    const estadoRealizacao = String(r.estadoRealizacao || '')
-    const cidadeRealizacao = String(r.cidadeRealizacao || '')
-    const uf = ufs.find(u => u.codigo === estadoRealizacao)
-    const ufId = uf?.id || ''
-    let cidadeId = ''
-    if (ufId) {
-      const cidadesList = await fetchCidades(ufId)
-      cidadeId = cidadesList.find(c => c.nome === cidadeRealizacao)?.id || ''
-    }
-    setForm({ nome: String(r.nome||''), dataInicio: r.dataInicio ? String(r.dataInicio).slice(0,10) : '', dataEncerramento: r.dataEncerramento ? String(r.dataEncerramento).slice(0,10) : '', responsavel: String(r.responsavel||''), emailResponsavel: String(r.emailResponsavel||''), telefoneResponsavel: String(r.telefoneResponsavel||''), orcamentoEstimado: String(r.orcamentoEstimado||''), contaBancariaVinculada1: String(r.contaBancariaVinculada1||''), contaBancariaVinculada2: String(r.contaBancariaVinculada2||''), paisRealizacao: String(r.paisRealizacao||'Brasil'), ufId, cidadeId, estadoRealizacao, cidadeRealizacao, numeroVoluntarios: String(r.numeroVoluntarios||''), departamentoId: String(r.departamentoId||''), comentarios: String(r.comentarios||''), arquivosReferencia: String(r.arquivosReferencia||'') })
+    const ufId = String(r.ufId || '')
+    setForm({ nome: String(r.nome||''), dataInicio: r.dataInicio ? String(r.dataInicio).slice(0,10) : '', dataEncerramento: r.dataEncerramento ? String(r.dataEncerramento).slice(0,10) : '', responsavel: String(r.responsavel||''), emailResponsavel: String(r.emailResponsavel||''), telefoneResponsavel: String(r.telefoneResponsavel||''), orcamentoEstimado: String(r.orcamentoEstimado||''), contaBancariaVinculada1: String(r.contaBancariaVinculada1||''), contaBancariaVinculada2: String(r.contaBancariaVinculada2||''), paisRealizacao: String(r.paisRealizacao||'Brasil'), ufId, cidadeId: String(r.cidadeId||''), estadoRealizacao: String(r.estadoRealizacao||''), cidadeRealizacao: String(r.cidadeRealizacao||''), numeroVoluntarios: String(r.numeroVoluntarios||''), departamentoId: String(r.departamentoId||''), comentarios: String(r.comentarios||''), arquivosReferencia: String(r.arquivosReferencia||'') })
+    if (ufId) fetchCidades(ufId)
     setModalOpen(true)
   }
 
