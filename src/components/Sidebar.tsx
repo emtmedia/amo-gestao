@@ -36,6 +36,7 @@ const navItems: NavItem[] = [
     children: [
       { label: 'Cadastro de Voluntários', icon: Users, href: '/cadastros/voluntarios-amo' },
       { label: 'Voluntários para Projeto', icon: Users, href: '/cadastros/voluntarios-projeto' },
+      { label: 'Voluntários para Evento', icon: Users, href: '/cadastros/voluntarios-evento' },
     ]
   },
   {
@@ -50,7 +51,6 @@ const navItems: NavItem[] = [
     label: 'Eventos', icon: Calendar,
     children: [
       { label: 'Eventos', icon: Calendar, href: '/cadastros/eventos' },
-      { label: 'Voluntários do Evento', icon: Users, href: '/cadastros/voluntarios-evento' },
       { label: 'Extrato de Evento', icon: FileText, href: '/cadastros/eventos/extrato' },
       { label: 'Consolidação de Eventos', icon: PieChart, href: '/cadastros/consolidacoes/eventos' },
     ]
