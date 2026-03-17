@@ -27,16 +27,21 @@ const navItems: NavItem[] = [
     label: 'Cadastros Base', icon: Settings,
     children: [
       { label: 'Departamentos', icon: Building2, href: '/cadastros/departamentos' },
-      { label: 'Voluntários AMO', icon: Users, href: '/cadastros/voluntarios-amo' },
       { label: 'Contas Bancárias', icon: CreditCard, href: '/cadastros/contas-bancarias' },
       { label: 'UF & Cidades', icon: MapPin, href: '/cadastros/uf-cidades' },
+    ]
+  },
+  {
+    label: 'Voluntários', icon: Users,
+    children: [
+      { label: 'Cadastro de Voluntários', icon: Users, href: '/cadastros/voluntarios-amo' },
+      { label: 'Voluntários para Projeto', icon: Users, href: '/cadastros/voluntarios-projeto' },
     ]
   },
   {
     label: 'Projetos', icon: FolderOpen,
     children: [
       { label: 'Projetos de Filantropia', icon: FolderOpen, href: '/cadastros/projetos' },
-      { label: 'Voluntários do Projeto', icon: Users, href: '/cadastros/voluntarios-projeto' },
       { label: 'Extrato de Projeto', icon: FileText, href: '/cadastros/projetos/extrato' },
       { label: 'Consolidação de Projetos', icon: PieChart, href: '/cadastros/consolidacoes/projetos' },
     ]
