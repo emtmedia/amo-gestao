@@ -10,7 +10,7 @@ import DateInput from '@/components/ui/DateInput'
 import PhoneInput from '@/components/ui/PhoneInput'
 import PasswordConfirmModal from '@/components/ui/PasswordConfirmModal'
 
-interface Evento { id: string; nome: string; responsavel: string; dataInicio: string; dataEncerramento: string; orcamentoEstimado: number; estadoRealizacao?: string; cidadeRealizacao?: string; status?: string }
+interface Evento { id: string; nome: string; responsavel: string; dataInicio: string; dataEncerramento: string; orcamentoEstimado: number; estadoRealizacao?: string; cidadeRealizacao?: string; status?: string; projetoVinculadoId?: string | null }
 interface Projeto { id: string; nome: string; status?: string }
 interface Conta { id: string; tipo: string; banco: string; agencia: string; numeroConta: string }
 interface UF { id: string; codigo: string; nome: string }
@@ -201,6 +201,12 @@ export default function EventosPage() {
             data={filteredData}
             columns={[
               { key: 'nome', label: 'Evento' },
+              { key: 'projetoVinculadoId', label: 'Projeto', render: (v) => {
+                const p = projetos.find(x => x.id === String(v))
+                return p
+                  ? <span className="text-xs font-medium text-navy-700">{p.nome}</span>
+                  : <span className="text-xs text-navy-400 italic">Avulso</span>
+              }},
               { key: 'responsavel', label: 'Responsável' },
               { key: 'telefoneResponsavel', label: 'Telefone' },
               { key: 'dataInicio', label: 'Início', render: (v) => fmtDate(String(v)) },
