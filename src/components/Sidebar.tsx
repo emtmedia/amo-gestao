@@ -38,6 +38,7 @@ const navItems: NavItem[] = [
       { label: 'Projetos de Filantropia', icon: FolderOpen, href: '/cadastros/projetos' },
       { label: 'Voluntários do Projeto', icon: Users, href: '/cadastros/voluntarios-projeto' },
       { label: 'Extrato de Projeto', icon: FileText, href: '/cadastros/projetos/extrato' },
+      { label: 'Consolidação de Projetos', icon: PieChart, href: '/cadastros/consolidacoes/projetos' },
     ]
   },
   {
@@ -46,6 +47,7 @@ const navItems: NavItem[] = [
       { label: 'Eventos', icon: Calendar, href: '/cadastros/eventos' },
       { label: 'Voluntários do Evento', icon: Users, href: '/cadastros/voluntarios-evento' },
       { label: 'Extrato de Evento', icon: FileText, href: '/cadastros/eventos/extrato' },
+      { label: 'Consolidação de Eventos', icon: PieChart, href: '/cadastros/consolidacoes/eventos' },
     ]
   },
   {
@@ -92,13 +94,6 @@ const navItems: NavItem[] = [
     label: 'Imóveis', icon: Building2,
     children: [
       { label: 'Contratos de Locação', icon: Building2, href: '/cadastros/imoveis' },
-    ]
-  },
-  {
-    label: 'Consolidações', icon: PieChart,
-    children: [
-      { label: 'Consolidação de Projetos', icon: PieChart, href: '/cadastros/consolidacoes/projetos' },
-      { label: 'Consolidação de Eventos', icon: PieChart, href: '/cadastros/consolidacoes/eventos' },
     ]
   },
   { label: 'Tabelas Auxiliares', icon: Settings, href: '/cadastros/auxiliares' },
