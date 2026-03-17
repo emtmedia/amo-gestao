@@ -8,7 +8,7 @@ import {
   TrendingUp, TrendingDown, Handshake, FileText,
   ChevronDown, ChevronRight, Menu, X, Settings,
   MapPin, CreditCard, Briefcase, BookOpen, Package,
-  Wrench, Utensils, PieChart, Sparkles
+  Wrench, Utensils, PieChart, Sparkles, Receipt
 } from 'lucide-react'
 import { usePreferences } from '@/lib/preferences'
 
@@ -107,6 +107,7 @@ const navItems: NavItem[] = [
   {
     label: 'Configurações', icon: Settings,
     children: [
+      { label: 'Emissão de Recibo', icon: Receipt, href: '/recibo' },
       { label: 'Preferências', icon: Settings, href: '/configuracoes' },
       { label: 'Guia do Usuário', icon: BookOpen, href: '/configuracoes/guia' },
       { label: 'Log de Auditoria', icon: FileText, href: '/admin/audit-log', adminOnly: true },
