@@ -74,35 +74,74 @@ export default function ReciboPage() {
       const j = await res.json()
       if (j.success) {
         setNumeroEmitido(j.numero)
-        setTimeout(() => window.print(), 300)
+        printRecibo({ ...form, numero: j.numero })
       } else {
         alert('Erro ao emitir recibo: ' + j.error)
       }
     } finally { setSaving(false) }
   }
 
+  const printRecibo = (data: typeof form & { numero: string }) => {
+    const valorFmt = fmtValor(data.valor)
+    const html = `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8"/>
+  <title>Recibo ${data.numero}</title>
+  <style>
+    @page { size: A4 portrait; margin: 20mm; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: Georgia, "Times New Roman", serif; color: #222; font-size: 15px; line-height: 1.9; }
+    .cabecalho { text-align: center; border-bottom: 2px solid #1a1a2e; padding-bottom: 16px; margin-bottom: 24px; }
+    .org { font-size: 22px; font-weight: 900; letter-spacing: 2px; color: #1a1a2e; }
+    .sub { font-size: 13px; font-weight: 600; color: #333; margin-top: 2px; letter-spacing: 1px; }
+    .titulo { font-size: 18px; font-weight: 700; color: #1a1a2e; margin-top: 10px; letter-spacing: 3px; text-transform: uppercase; }
+    .meta { display: flex; justify-content: space-between; margin-top: 8px; font-size: 12px; color: #555; }
+    .numero { font-family: monospace; font-weight: 600; background: #f0f0f0; padding: 2px 8px; border-radius: 4px; }
+    .corpo { margin-bottom: 24px; text-align: justify; }
+    .destaque { border-bottom: 1px dotted #555; font-weight: bold; }
+    .assinatura { margin-top: 80px; text-align: center; }
+    .linha-assinatura { width: 260px; margin: 0 auto 8px; border-bottom: 1px solid #444; }
+    .nome-assinatura { font-size: 14px; font-weight: 600; }
+    .cpf-assinatura { font-size: 13px; color: #555; margin-top: 4px; }
+    .rodape { margin-top: 60px; padding-top: 16px; border-top: 1px solid #ddd; text-align: center; font-size: 10px; color: #aaa; }
+  </style>
+</head>
+<body>
+  <div class="cabecalho">
+    <div class="org">🕊️ AMO</div>
+    <div class="sub">ASSOCIAÇÃO MISSÃO ÔMEGA</div>
+    <div class="titulo">Recibo de Pagamento</div>
+    <div class="meta">
+      <span class="numero">${data.numero}</span>
+      <span>${fmtDate(data.data)}${data.hora ? ` — ${data.hora}` : ''}</span>
+    </div>
+  </div>
+  <p class="corpo">
+    Eu, <span class="destaque">${data.nomeRecebedor}</span>, recebi da
+    <strong>Associação Missão Ômega</strong> o valor de
+    <span class="destaque">${valorFmt}</span>
+    pela seguinte prestação de serviço:
+    <span class="destaque">${data.descricao}</span>.
+  </p>
+  <div class="assinatura">
+    <div class="linha-assinatura"></div>
+    <div class="nome-assinatura">${data.nomeRecebedor}</div>
+    <div class="cpf-assinatura">CPF: ${data.cpfRecebedor}</div>
+  </div>
+  <div class="rodape">Documento emitido pelo Sistema de Gestão AMO · ${data.numero}</div>
+  <script>window.onload = function(){ window.print(); window.onafterprint = function(){ window.close(); }; }</script>
+</body>
+</html>`
+
+    const win = window.open('', '_blank', 'width=900,height=1100')
+    if (win) { win.document.write(html); win.document.close() }
+  }
+
   const numero = numeroEmitido ?? proximoNumero
 
   return (
     <>
-      {/* ── PRINT STYLES ── */}
-      <style>{`
-        @media print {
-          @page { size: A4 portrait; margin: 0; }
-          body * { visibility: hidden; }
-          .recibo-print-area, .recibo-print-area * { visibility: visible; }
-          .recibo-print-area {
-            position: fixed;
-            top: 0; left: 0;
-            width: 210mm;
-            min-height: 297mm;
-            padding: 20mm;
-            background: white;
-            box-shadow: none;
-          }
-        }
-      `}</style>
-
       <div>
         <div className="print:hidden">
           {/* ── HEADER ── */}
