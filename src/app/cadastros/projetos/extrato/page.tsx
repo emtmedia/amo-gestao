@@ -180,6 +180,10 @@ export default function ExtratoProjetoPage() {
         <div className="card text-center py-10 text-navy-400">Carregando extrato...</div>
       )}
 
+      {!loading && !projetoInfo && projetoId && (
+        <div className="card text-center py-10 text-red-500">Projeto não encontrado ou sem dados.</div>
+      )}
+
       {!loading && projetoInfo && direto && totaisGeral && totaisGeral.entradas === 0 && totaisGeral.saidas === 0 && (
         <div className="card text-center py-10 text-red-500">
           Nenhum lançamento financeiro encontrado para este projeto.
