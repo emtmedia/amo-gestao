@@ -89,18 +89,21 @@ export default function ReciboPage() {
       <style>{`
         @media print {
           @page { size: A4 portrait; margin: 0; }
-          body > * { display: none !important; }
-          #recibo-print-root { display: block !important; }
-          #recibo-print-root .a4-page {
-            width: 210mm; min-height: 297mm;
-            margin: 0; padding: 20mm 20mm 20mm 20mm;
-            box-shadow: none; border: none;
+          body * { visibility: hidden; }
+          .recibo-print-area, .recibo-print-area * { visibility: visible; }
+          .recibo-print-area {
+            position: fixed;
+            top: 0; left: 0;
+            width: 210mm;
+            min-height: 297mm;
+            padding: 20mm;
+            background: white;
+            box-shadow: none;
           }
         }
-        #recibo-print-root { display: contents; }
       `}</style>
 
-      <div id="recibo-print-root">
+      <div>
         <div className="print:hidden">
           {/* ── HEADER ── */}
           <div className="page-header">
@@ -202,14 +205,14 @@ export default function ReciboPage() {
               </div>
             </div>
 
-            {/* A4 PREVIEW */}
+            {/* A4 PREVIEW — também é o que aparece na impressão via .recibo-print-area */}
             <div className="flex-1 flex justify-center">
               <div
-                className="a4-page bg-white shadow-2xl"
+                className="recibo-print-area bg-white shadow-2xl"
                 style={{
                   width: '210mm',
                   minHeight: '297mm',
-                  padding: '20mm 20mm 20mm 20mm',
+                  padding: '20mm',
                   fontFamily: 'Georgia, "Times New Roman", serif',
                 }}
               >
@@ -225,30 +228,6 @@ export default function ReciboPage() {
                 />
               </div>
             </div>
-          </div>
-        </div>
-
-        {/* ── VERSÃO IMPRESSÃO (só aparece no print) ── */}
-        <div className="hidden print:block">
-          <div
-            className="a4-page bg-white"
-            style={{
-              width: '210mm',
-              minHeight: '297mm',
-              padding: '20mm 20mm 20mm 20mm',
-              fontFamily: 'Georgia, "Times New Roman", serif',
-            }}
-          >
-            <ReciboContent
-              numero={numero}
-              data={form.data}
-              hora={form.hora}
-              nomeRecebedor={form.nomeRecebedor}
-              cpfRecebedor={form.cpfRecebedor}
-              valor={form.valor}
-              descricao={form.descricao}
-              emitido={!!numeroEmitido}
-            />
           </div>
         </div>
       </div>
