@@ -16,12 +16,25 @@ export async function GET(_: NextRequest, { params }: { params: { id: string } }
 export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
   try {
     const body = await request.json()
-    const item = await prisma.voluntarioEvento.update({ where: { id: params.id }, data: body })
+    const data = {
+      voluntarioId:      body.voluntarioId,
+      eventoId:          body.eventoId,
+      funcaoCargo:       body.funcaoCargo,
+      cpf:               body.cpf,
+      igrejaOrigem:      body.igrejaOrigem      || null,
+      fotografia:        body.fotografia        || null,
+      arquivosReferencia: body.arquivosReferencia || null,
+      dataNascimento:    new Date(body.dataNascimento).toISOString(),
+      dataInicio:        new Date(body.dataInicio).toISOString(),
+      dataSaida:         body.dataSaida ? new Date(body.dataSaida).toISOString() : null,
+    }
+    const item = await prisma.voluntarioEvento.update({ where: { id: params.id }, data })
     await logAudit("EDITAR", "Voluntário Evento", params.id)
     return NextResponse.json({ success: true, data: item })
   } catch (error) {
-    console.error(error)
-    return NextResponse.json({ success: false, error: 'Erro ao atualizar' }, { status: 500 })
+    const msg = error instanceof Error ? error.message : String(error)
+    console.error(msg)
+    return NextResponse.json({ success: false, error: msg }, { status: 500 })
   }
 }
 
