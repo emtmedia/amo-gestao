@@ -5,7 +5,18 @@ import prisma from '@/lib/prisma'
 export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
   try {
     const body = await request.json()
-    const item = await prisma.fornecedor.update({ where: { id: params.id }, data: { ...body, updatedAt: new Date() } })
+    const data = {
+      nome:           body.nome,
+      categoriaId:    body.categoriaId    || null,
+      subcategoriaId: body.subcategoriaId || null,
+      endereco:       body.endereco       || null,
+      site:           body.site           || null,
+      telefone:       body.telefone       || null,
+      email:          body.email          || null,
+      observacoes:    body.observacoes    || null,
+      arquivosRef:    body.arquivosReferencia || body.arquivosRef || null,
+    }
+    const item = await prisma.fornecedor.update({ where: { id: params.id }, data })
     return NextResponse.json({ success: true, data: item })
   } catch (error) {
     return NextResponse.json({ success: false, error: String(error) }, { status: 500 })

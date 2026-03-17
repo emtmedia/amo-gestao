@@ -15,8 +15,19 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const item = await prisma.fornecedor.create({ data: body })
-    await logAudit("CRIAR", "Fornecedor", item.id, `Criado: ${JSON.stringify(body).substring(0,200)}`)
+    const data = {
+      nome:           body.nome,
+      categoriaId:    body.categoriaId    || null,
+      subcategoriaId: body.subcategoriaId || null,
+      endereco:       body.endereco       || null,
+      site:           body.site           || null,
+      telefone:       body.telefone       || null,
+      email:          body.email          || null,
+      observacoes:    body.observacoes    || null,
+      arquivosRef:    body.arquivosReferencia || body.arquivosRef || null,
+    }
+    const item = await prisma.fornecedor.create({ data })
+    await logAudit("CRIAR", "Fornecedor", item.id, `Criado: ${JSON.stringify(data).substring(0,200)}`)
     return NextResponse.json({ success: true, data: item })
   } catch (error) {
     console.error(error)
