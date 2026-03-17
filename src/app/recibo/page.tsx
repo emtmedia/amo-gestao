@@ -1,16 +1,27 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { Receipt, Printer, RotateCcw, CheckCircle } from 'lucide-react'
+import CurrencyInput, { parseBRL } from '@/components/ui/CurrencyInput'
 
 const hoje = () => new Date().toISOString().slice(0, 10)
 const agora = () => new Date().toTimeString().slice(0, 5)
+
+const maskCPF = (v: string) => {
+  const d = v.replace(/\D/g, '').slice(0, 11)
+  if (d.length <= 3) return d
+  if (d.length <= 6) return `${d.slice(0,3)}.${d.slice(3)}`
+  if (d.length <= 9) return `${d.slice(0,3)}.${d.slice(3,6)}.${d.slice(6)}`
+  return `${d.slice(0,3)}.${d.slice(3,6)}.${d.slice(6,9)}-${d.slice(9)}`
+}
 
 const fmtDate = (d: string) =>
   d ? new Date(d + 'T12:00:00').toLocaleDateString('pt-BR') : '___/___/______'
 
 const fmtValor = (v: string) => {
-  const n = parseFloat(v.replace(',', '.'))
-  if (isNaN(n) || !v) return 'R$ ___________'
+  if (!v) return 'R$ ___________'
+  // CurrencyInput stores as "1.234,56" — parse BR format
+  const n = parseFloat(v.replace(/\./g, '').replace(',', '.'))
+  if (isNaN(n)) return 'R$ ___________'
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(n)
 }
 
@@ -22,7 +33,8 @@ const emptyForm = {
 
 export default function ReciboPage() {
   const [form, setForm] = useState({ ...emptyForm, data: hoje(), hora: agora() })
-  const [proximoNumero, setProximoNumero] = useState<string>('RB-......')
+  const ano = new Date().getFullYear()
+  const [proximoNumero, setProximoNumero] = useState<string>(`N° ..../${ano}`)
   const [numeroEmitido, setNumeroEmitido] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [migrated, setMigrated] = useState(false)
@@ -57,7 +69,7 @@ export default function ReciboPage() {
       const res = await fetch('/api/recibo', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...form, valor: parseFloat(form.valor.replace(',', '.')) }),
+        body: JSON.stringify({ ...form, valor: parseBRL(form.valor) }),
       })
       const j = await res.json()
       if (j.success) {
@@ -160,13 +172,22 @@ export default function ReciboPage() {
 
                 <div className="form-group">
                   <label>CPF do Recebedor <span className="required-star">*</span></label>
-                  <input type="text" placeholder="000.000.000-00" value={form.cpfRecebedor} onChange={set('cpfRecebedor')} className="form-input" />
+                  <input
+                    type="text"
+                    placeholder="000.000.000-00"
+                    value={form.cpfRecebedor}
+                    onChange={e => setForm(p => ({ ...p, cpfRecebedor: maskCPF(e.target.value) }))}
+                    className="form-input"
+                    maxLength={14}
+                  />
                 </div>
 
-                <div className="form-group">
-                  <label>Valor (R$) <span className="required-star">*</span></label>
-                  <input type="text" placeholder="0,00" value={form.valor} onChange={set('valor')} className="form-input" />
-                </div>
+                <CurrencyInput
+                  label="Valor (R$)"
+                  required
+                  value={form.valor}
+                  onChange={v => setForm(p => ({ ...p, valor: v }))}
+                />
 
                 <div className="form-group">
                   <label>Descrição do Serviço <span className="required-star">*</span></label>

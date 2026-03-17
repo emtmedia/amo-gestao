@@ -5,7 +5,8 @@ import { logAudit } from '@/lib/audit'
 export const dynamic = 'force-dynamic'
 
 function formatNumero(seq: number) {
-  return `RB-${String(seq).padStart(6, '0')}`
+  const ano = new Date().getFullYear()
+  return `N° ${String(seq).padStart(4, '0')}/${ano}`
 }
 
 // GET — returns the next sequence number (preview only, does not reserve)
