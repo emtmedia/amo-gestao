@@ -8,7 +8,7 @@ import {
   TrendingUp, TrendingDown, Handshake, FileText,
   ChevronDown, ChevronRight, Menu, X, Settings,
   MapPin, CreditCard, Briefcase, BookOpen, Package,
-  Wrench, Utensils, PieChart, Sparkles, Receipt
+  Wrench, Utensils, PieChart, Sparkles, Receipt, ClipboardList
 } from 'lucide-react'
 import { usePreferences } from '@/lib/preferences'
 
@@ -37,6 +37,7 @@ const navItems: NavItem[] = [
       { label: 'Cadastro de Voluntários', icon: Users, href: '/cadastros/voluntarios-amo' },
       { label: 'Voluntários para Projeto', icon: Users, href: '/cadastros/voluntarios-projeto' },
       { label: 'Voluntários para Evento', icon: Users, href: '/cadastros/voluntarios-evento' },
+      { label: 'Termo de Voluntariado', icon: ClipboardList, href: '/termo-voluntariado' },
     ]
   },
   {
