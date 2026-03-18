@@ -52,8 +52,7 @@ export async function POST() {
         })
       }
 
-      const { createId } = await import('@paralleldrive/cuid2').catch(() => ({ createId: () => crypto.randomUUID() }))
-      const docId = typeof createId === 'function' ? createId() : crypto.randomUUID()
+      const docId = crypto.randomUUID()
 
       await prisma.$executeRawUnsafe(`
         INSERT INTO "DocumentoAMO" (
