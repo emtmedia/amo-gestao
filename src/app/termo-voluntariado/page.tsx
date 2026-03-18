@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
-import { FileText, Printer, RotateCcw } from 'lucide-react'
+import { FileText, Printer, RotateCcw, CheckCircle } from 'lucide-react'
 
 interface Voluntario {
   id: string; nome: string; cpf: string
@@ -35,8 +35,22 @@ export default function TermoVoluntariadoPage() {
   const [projId, setProjId] = useState('')
   const [evId,   setEvId]   = useState('')
   const [loading, setLoading] = useState(true)
+  const [saving,  setSaving]  = useState(false)
+  const [migrated, setMigrated] = useState(false)
+
+  const ano = new Date().getFullYear()
+  const [proximoNumero, setProximoNumero] = useState<string>(`N° ..../${ano}`)
+  const [numeroEmitido, setNumeroEmitido] = useState<string | null>(null)
 
   useEffect(() => {
+    // Migration + preview number
+    fetch('/api/migrate/termo-voluntariado', { method: 'POST' })
+      .then(() => setMigrated(true))
+      .then(() => fetch('/api/termo-voluntariado'))
+      .then(r => r.json())
+      .then(j => { if (j.success) setProximoNumero(j.proximo) })
+      .catch(() => setMigrated(true))
+
     Promise.all([
       fetch('/api/voluntarios-amo').then(r => r.json()),
       fetch('/api/projetos').then(r => r.json()),
@@ -47,6 +61,9 @@ export default function TermoVoluntariadoPage() {
       if (je.success) setEventos(je.data)
     }).finally(() => setLoading(false))
   }, [])
+
+  const refreshNumero = () =>
+    fetch('/api/termo-voluntariado').then(r => r.json()).then(j => { if (j.success) setProximoNumero(j.proximo) })
 
   // When evento changes, auto-fill or clear projeto
   const handleEventoChange = (id: string) => {
@@ -64,11 +81,39 @@ export default function TermoVoluntariadoPage() {
   // Projeto is disabled when evento is selected (projeto comes from event)
   const projetoDisabled = !!evId
 
-  const reset = () => { setVolId(''); setProjId(''); setEvId('') }
+  const reset = () => {
+    setVolId(''); setProjId(''); setEvId(''); setNumeroEmitido(null)
+    refreshNumero()
+  }
 
-  const printTermo = () => {
+  const handleEmitir = async () => {
     if (!selectedVol) { alert('Selecione um voluntário.'); return }
-    const html = buildHtml(selectedVol, selectedProj ?? null, selectedEv ?? null)
+    setSaving(true)
+    try {
+      const res = await fetch('/api/termo-voluntariado', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          voluntarioId:   selectedVol.id,
+          voluntarioNome: selectedVol.nome,
+          voluntarioCpf:  selectedVol.cpf,
+          projetoNome:    selectedProj?.nome ?? null,
+          eventoNome:     selectedEv?.nome   ?? null,
+        }),
+      })
+      const j = await res.json()
+      if (j.success) {
+        setNumeroEmitido(j.numero)
+        printTermo(j.numero)
+      } else {
+        alert('Erro ao emitir termo: ' + j.error)
+      }
+    } finally { setSaving(false) }
+  }
+
+  const printTermo = (numero: string) => {
+    if (!selectedVol) return
+    const html = buildHtml(selectedVol, selectedProj ?? null, selectedEv ?? null, numero)
     const win = window.open('', '_blank', 'width=960,height=1000')
     if (win) { win.document.write(html); win.document.close(); win.focus() }
   }
@@ -85,17 +130,27 @@ export default function TermoVoluntariadoPage() {
         </div>
         <div className="flex items-center gap-2">
           <button onClick={reset} className="btn-secondary flex items-center gap-2">
-            <RotateCcw className="w-4 h-4" /> Limpar
+            <RotateCcw className="w-4 h-4" /> Novo Termo
           </button>
           <button
-            onClick={printTermo}
-            disabled={!volId}
+            onClick={handleEmitir}
+            disabled={!volId || saving || !migrated}
             className="btn-primary flex items-center gap-2 disabled:opacity-50"
           >
-            <Printer className="w-4 h-4" /> Gerar Termo
+            {saving
+              ? <span className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full" />
+              : <Printer className="w-4 h-4" />}
+            {saving ? 'Emitindo...' : 'Emitir Termo'}
           </button>
         </div>
       </div>
+
+      {numeroEmitido && (
+        <div className="mb-4 flex items-center gap-2 px-4 py-3 bg-green-50 border border-green-200 rounded-xl text-green-800 text-sm font-medium">
+          <CheckCircle className="w-4 h-4 text-green-600" />
+          Termo <strong>{numeroEmitido}</strong> emitido e salvo com sucesso.
+        </div>
+      )}
 
       {loading ? (
         <div className="text-center py-12 text-navy-400">Carregando...</div>
@@ -106,6 +161,17 @@ export default function TermoVoluntariadoPage() {
           <div className="w-80 shrink-0">
             <div className="card space-y-4">
               <h2 className="text-sm font-semibold text-navy-700 uppercase tracking-wide">Dados do Termo</h2>
+
+              <div className="form-group">
+                <label>Nº do Termo</label>
+                <input
+                  type="text"
+                  value={numeroEmitido ?? proximoNumero}
+                  readOnly
+                  className="form-input bg-navy-50 text-navy-500 font-mono font-semibold cursor-not-allowed"
+                />
+                <p className="text-xs text-navy-400 mt-1">Gerado automaticamente ao emitir</p>
+              </div>
 
               <div className="form-group">
                 <label>Voluntário <span className="required-star">*</span></label>
@@ -189,7 +255,7 @@ export default function TermoVoluntariadoPage() {
                 color: '#222',
               }}
             >
-              <TermoContent vol={selectedVol ?? null} proj={selectedProj ?? null} ev={selectedEv ?? null} />
+              <TermoContent vol={selectedVol ?? null} proj={selectedProj ?? null} ev={selectedEv ?? null} numero={numeroEmitido ?? proximoNumero} emitido={!!numeroEmitido} />
             </div>
           </div>
         </div>
@@ -202,8 +268,8 @@ export default function TermoVoluntariadoPage() {
    Preview component (in-page)
 ────────────────────────────────────────────────────────── */
 function TermoContent({
-  vol, proj, ev
-}: { vol: Voluntario | null; proj: Projeto | null; ev: Evento | null }) {
+  vol, proj, ev, numero, emitido
+}: { vol: Voluntario | null; proj: Projeto | null; ev: Evento | null; numero: string; emitido: boolean }) {
   const ph = (v: string | undefined, fallback: string) =>
     v ? <strong style={{ borderBottom: '1px dotted #888' }}>{v}</strong>
        : <span style={{ color: '#bbb', borderBottom: '1px dotted #ccc' }}>{fallback}</span>
@@ -235,8 +301,11 @@ function TermoContent({
         <div style={{ fontSize: '17px', fontWeight: 700, color: '#1a1a2e', marginTop: '10px', letterSpacing: '2px', textTransform: 'uppercase' }}>
           Termo de Adesão ao Serviço Voluntário
         </div>
-        <div style={{ fontSize: '11px', color: '#777', marginTop: '6px' }}>
-          Lei Federal nº 9.608/1998 — Serviço Voluntário
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '8px' }}>
+          <span style={{ fontSize: '11px', color: '#777' }}>Lei Federal nº 9.608/1998 — Serviço Voluntário</span>
+          <span style={{ fontFamily: 'monospace', fontWeight: 600, fontSize: '12px', background: '#f0f0f0', padding: '2px 8px', borderRadius: '4px', color: '#333' }}>
+            {numero}
+          </span>
         </div>
       </div>
 
@@ -324,7 +393,9 @@ function TermoContent({
       </div>
 
       <div style={{ marginTop: '40px', paddingTop: '12px', borderTop: '1px solid #ddd', textAlign: 'center', fontSize: '10px', color: '#aaa' }}>
-        Documento gerado pelo Sistema de Gestão AMO · Associação Missão Ômega
+        {emitido
+          ? `Documento emitido pelo Sistema de Gestão AMO · ${numero}`
+          : 'Documento gerado pelo Sistema de Gestão AMO · Associação Missão Ômega'}
       </div>
     </div>
   )
@@ -333,7 +404,7 @@ function TermoContent({
 /* ──────────────────────────────────────────────────────────
    HTML para nova janela de impressão
 ────────────────────────────────────────────────────────── */
-function buildHtml(vol: Voluntario, proj: Projeto | null, ev: Evento | null): string {
+function buildHtml(vol: Voluntario, proj: Projeto | null, ev: Evento | null, numero: string): string {
   const art = pronome(vol.genero)
   const A   = art === 'a' ? 'A' : 'O'
   const V   = art === 'a' ? 'VOLUNTÁRIA' : 'VOLUNTÁRIO'
@@ -401,7 +472,7 @@ function buildHtml(vol: Voluntario, proj: Projeto | null, ev: Evento | null): st
 </head>
 <body>
   <div class="toolbar">
-    <span class="toolbar-title">📋 Termo de Voluntariado — ${vol.nome}</span>
+    <span class="toolbar-title">📋 Termo de Voluntariado ${numero} — ${vol.nome}</span>
     <div class="toolbar-btns">
       <button class="btn-print" onclick="window.print()">🖨️ Imprimir / Salvar PDF</button>
       <button class="btn-close" onclick="window.close()">Fechar</button>
@@ -413,7 +484,10 @@ function buildHtml(vol: Voluntario, proj: Projeto | null, ev: Evento | null): st
         <div class="org">🕊️ AMO</div>
         <div class="sub">ASSOCIAÇÃO MISSÃO ÔMEGA</div>
         <div class="titulo">Termo de Adesão ao Serviço Voluntário</div>
-        <div class="subtitulo">Lei Federal nº 9.608/1998 — Serviço Voluntário</div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px">
+          <span class="subtitulo">Lei Federal nº 9.608/1998 — Serviço Voluntário</span>
+          <span style="font-family:monospace;font-weight:600;font-size:12px;background:#f0f0f0;padding:2px 8px;border-radius:4px;color:#333">${numero}</span>
+        </div>
       </div>
 
       <p>
@@ -485,7 +559,7 @@ function buildHtml(vol: Voluntario, proj: Projeto | null, ev: Evento | null): st
         </div>
       </div>
 
-      <div class="rodape">Documento gerado pelo Sistema de Gestão AMO · Associação Missão Ômega</div>
+      <div class="rodape">Documento emitido pelo Sistema de Gestão AMO · ${numero} · Associação Missão Ômega</div>
     </div>
   </div>
 </body>

@@ -940,3 +940,24 @@ model Recibo {
   descricao     String
   createdAt     DateTime @default(now())
 }
+
+// ============================================
+// 67. TERMO DE VOLUNTARIADO
+// ============================================
+model TermoVoluntariadoContador {
+  id     Int @id @default(1)
+  ultimo Int @default(0)
+}
+
+model TermoVoluntariado {
+  id             String   @id @default(cuid())
+  numero         String   @unique
+  sequencia      Int
+  voluntarioId   String
+  voluntarioNome String
+  voluntarioCpf  String
+  projetoNome    String?
+  eventoNome     String?
+  emitidoEm      DateTime @default(now())
+  createdAt      DateTime @default(now())
+}
