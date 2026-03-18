@@ -386,10 +386,10 @@ export default function Page() {
                       <td className="px-4 py-3 text-xs text-navy-400">{fmtSize(doc.tamanhoArquivo)}</td>
                       <td className="px-4 py-3">
                         <div className="flex items-center justify-center gap-1">
-                          <button onClick={() => openDoc(doc.id)} disabled={!isValidUrl(doc.urlArquivo)} className="p-1.5 rounded-lg hover:bg-blue-50 text-navy-400 hover:text-blue-600 disabled:opacity-30 disabled:cursor-not-allowed" title="Abrir documento">
+                          <button onClick={() => openDoc(doc.id)} className="p-1.5 rounded-lg hover:bg-blue-50 text-navy-400 hover:text-blue-600" title="Abrir documento">
                             <ExternalLink className="w-4 h-4" />
                           </button>
-                          <button onClick={() => downloadDoc(doc.id)} disabled={!isValidUrl(doc.urlArquivo)} className="p-1.5 rounded-lg hover:bg-cream-100 text-navy-400 hover:text-navy-700 disabled:opacity-30 disabled:cursor-not-allowed" title="Baixar">
+                          <button onClick={() => downloadDoc(doc.id)} className="p-1.5 rounded-lg hover:bg-cream-100 text-navy-400 hover:text-navy-700" title="Baixar">
                             <Download className="w-4 h-4" />
                           </button>
                           <button onClick={() => openEdit(doc)} className="p-1.5 rounded-lg hover:bg-cream-100 text-navy-400 hover:text-navy-700" title="Editar">
@@ -424,10 +424,10 @@ export default function Page() {
                       </div>
                     </div>
                     <div className="flex items-center gap-1">
-                      <button onClick={() => openDoc(doc.id)} disabled={!isValidUrl(doc.urlArquivo)} className="p-1.5 rounded-lg hover:bg-blue-50 text-navy-400 hover:text-blue-600 disabled:opacity-30 disabled:cursor-not-allowed" title="Abrir documento">
+                      <button onClick={() => openDoc(doc.id)} className="p-1.5 rounded-lg hover:bg-blue-50 text-navy-400 hover:text-blue-600" title="Abrir documento">
                         <ExternalLink className="w-4 h-4" />
                       </button>
-                      <button onClick={() => downloadDoc(doc.id)} disabled={!isValidUrl(doc.urlArquivo)} className="p-1.5 rounded-lg hover:bg-cream-100 text-navy-400 hover:text-navy-700 disabled:opacity-30 disabled:cursor-not-allowed" title="Baixar">
+                      <button onClick={() => downloadDoc(doc.id)} className="p-1.5 rounded-lg hover:bg-cream-100 text-navy-400 hover:text-navy-700" title="Baixar">
                         <Download className="w-4 h-4" />
                       </button>
                       <button onClick={() => openEdit(doc)} className="p-1.5 rounded-lg hover:bg-cream-100 text-navy-400 hover:text-navy-700" title="Editar">
