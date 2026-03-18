@@ -43,15 +43,14 @@ function fmtDate(d?: string) { return d ? new Date(d).toLocaleDateString('pt-BR'
 
 function isValidUrl(url: string) { return url && url.startsWith('http') }
 
-function openDoc(url: string) {
-  if (!isValidUrl(url)) { alert('Arquivo não disponível para visualização.'); return }
-  window.open(url, '_blank', 'noopener,noreferrer')
+function openDoc(id: string) {
+  window.open(`/api/documentos-amo/download/${id}`, '_blank', 'noopener,noreferrer')
 }
 
-function downloadDoc(url: string, name: string) {
-  if (!isValidUrl(url)) { alert('Arquivo não disponível para download.'); return }
+function downloadDoc(id: string) {
   const a = document.createElement('a')
-  a.href = url; a.download = name; a.target = '_blank'
+  a.href = `/api/documentos-amo/download/${id}`
+  a.target = '_blank'
   document.body.appendChild(a); a.click(); document.body.removeChild(a)
 }
 
@@ -387,10 +386,10 @@ export default function Page() {
                       <td className="px-4 py-3 text-xs text-navy-400">{fmtSize(doc.tamanhoArquivo)}</td>
                       <td className="px-4 py-3">
                         <div className="flex items-center justify-center gap-1">
-                          <button onClick={() => openDoc(doc.urlArquivo)} disabled={!isValidUrl(doc.urlArquivo)} className="p-1.5 rounded-lg hover:bg-blue-50 text-navy-400 hover:text-blue-600 disabled:opacity-30 disabled:cursor-not-allowed" title="Abrir documento">
+                          <button onClick={() => openDoc(doc.id)} disabled={!isValidUrl(doc.urlArquivo)} className="p-1.5 rounded-lg hover:bg-blue-50 text-navy-400 hover:text-blue-600 disabled:opacity-30 disabled:cursor-not-allowed" title="Abrir documento">
                             <ExternalLink className="w-4 h-4" />
                           </button>
-                          <button onClick={() => downloadDoc(doc.urlArquivo, doc.nomeArquivo)} disabled={!isValidUrl(doc.urlArquivo)} className="p-1.5 rounded-lg hover:bg-cream-100 text-navy-400 hover:text-navy-700 disabled:opacity-30 disabled:cursor-not-allowed" title="Baixar">
+                          <button onClick={() => downloadDoc(doc.id)} disabled={!isValidUrl(doc.urlArquivo)} className="p-1.5 rounded-lg hover:bg-cream-100 text-navy-400 hover:text-navy-700 disabled:opacity-30 disabled:cursor-not-allowed" title="Baixar">
                             <Download className="w-4 h-4" />
                           </button>
                           <button onClick={() => openEdit(doc)} className="p-1.5 rounded-lg hover:bg-cream-100 text-navy-400 hover:text-navy-700" title="Editar">
@@ -425,10 +424,10 @@ export default function Page() {
                       </div>
                     </div>
                     <div className="flex items-center gap-1">
-                      <button onClick={() => openDoc(doc.urlArquivo)} disabled={!isValidUrl(doc.urlArquivo)} className="p-1.5 rounded-lg hover:bg-blue-50 text-navy-400 hover:text-blue-600 disabled:opacity-30 disabled:cursor-not-allowed" title="Abrir documento">
+                      <button onClick={() => openDoc(doc.id)} disabled={!isValidUrl(doc.urlArquivo)} className="p-1.5 rounded-lg hover:bg-blue-50 text-navy-400 hover:text-blue-600 disabled:opacity-30 disabled:cursor-not-allowed" title="Abrir documento">
                         <ExternalLink className="w-4 h-4" />
                       </button>
-                      <button onClick={() => downloadDoc(doc.urlArquivo, doc.nomeArquivo)} disabled={!isValidUrl(doc.urlArquivo)} className="p-1.5 rounded-lg hover:bg-cream-100 text-navy-400 hover:text-navy-700 disabled:opacity-30 disabled:cursor-not-allowed" title="Baixar">
+                      <button onClick={() => downloadDoc(doc.id)} disabled={!isValidUrl(doc.urlArquivo)} className="p-1.5 rounded-lg hover:bg-cream-100 text-navy-400 hover:text-navy-700 disabled:opacity-30 disabled:cursor-not-allowed" title="Baixar">
                         <Download className="w-4 h-4" />
                       </button>
                       <button onClick={() => openEdit(doc)} className="p-1.5 rounded-lg hover:bg-cream-100 text-navy-400 hover:text-navy-700" title="Editar">
