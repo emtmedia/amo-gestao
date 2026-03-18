@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react'
-import { Plus, Upload, Search, FileText, File, Image, FileArchive, FileSpreadsheet, Download, Eye, Pencil, Trash2, Tag, Lock, Unlock, RefreshCw, FolderOpen, X, Filter, LayoutGrid, List, ScanLine } from 'lucide-react'
+import { Plus, Upload, Search, FileText, File, Image, FileArchive, FileSpreadsheet, Download, Eye, Pencil, Trash2, Tag, Lock, Unlock, RefreshCw, FolderOpen, X, Filter, LayoutGrid, List, ScanLine, ExternalLink } from 'lucide-react'
 import Modal from '@/components/ui/Modal'
 import DateInput from '@/components/ui/DateInput'
 import { usePreferences } from '@/lib/preferences'
@@ -40,6 +40,20 @@ function fmtSize(b?: number) {
 }
 
 function fmtDate(d?: string) { return d ? new Date(d).toLocaleDateString('pt-BR') : '—' }
+
+function isValidUrl(url: string) { return url && url.startsWith('http') }
+
+function openDoc(url: string) {
+  if (!isValidUrl(url)) { alert('Arquivo não disponível para visualização.'); return }
+  window.open(url, '_blank', 'noopener,noreferrer')
+}
+
+function downloadDoc(url: string, name: string) {
+  if (!isValidUrl(url)) { alert('Arquivo não disponível para download.'); return }
+  const a = document.createElement('a')
+  a.href = url; a.download = name; a.target = '_blank'
+  document.body.appendChild(a); a.click(); document.body.removeChild(a)
+}
 
 function isExpiringSoon(d?: string) {
   if (!d) return false
@@ -373,9 +387,12 @@ export default function Page() {
                       <td className="px-4 py-3 text-xs text-navy-400">{fmtSize(doc.tamanhoArquivo)}</td>
                       <td className="px-4 py-3">
                         <div className="flex items-center justify-center gap-1">
-                          <a href={doc.urlArquivo} target="_blank" rel="noopener noreferrer" className="p-1.5 rounded-lg hover:bg-cream-100 text-navy-400 hover:text-navy-700" title="Visualizar">
-                            <Eye className="w-4 h-4" />
-                          </a>
+                          <button onClick={() => openDoc(doc.urlArquivo)} disabled={!isValidUrl(doc.urlArquivo)} className="p-1.5 rounded-lg hover:bg-blue-50 text-navy-400 hover:text-blue-600 disabled:opacity-30 disabled:cursor-not-allowed" title="Abrir documento">
+                            <ExternalLink className="w-4 h-4" />
+                          </button>
+                          <button onClick={() => downloadDoc(doc.urlArquivo, doc.nomeArquivo)} disabled={!isValidUrl(doc.urlArquivo)} className="p-1.5 rounded-lg hover:bg-cream-100 text-navy-400 hover:text-navy-700 disabled:opacity-30 disabled:cursor-not-allowed" title="Baixar">
+                            <Download className="w-4 h-4" />
+                          </button>
                           <button onClick={() => openEdit(doc)} className="p-1.5 rounded-lg hover:bg-cream-100 text-navy-400 hover:text-navy-700" title="Editar">
                             <Pencil className="w-4 h-4" />
                           </button>
@@ -407,10 +424,13 @@ export default function Page() {
                         <p className="text-xs font-medium px-2 py-0.5 rounded-full text-white inline-block" style={{ backgroundColor: doc.categoria.cor }}>{doc.categoria.nome}</p>
                       </div>
                     </div>
-                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <a href={doc.urlArquivo} target="_blank" rel="noopener noreferrer" className="p-1.5 rounded-lg hover:bg-cream-100 text-navy-400 hover:text-navy-700" title="Visualizar/Baixar">
-                        <Eye className="w-4 h-4" />
-                      </a>
+                    <div className="flex items-center gap-1">
+                      <button onClick={() => openDoc(doc.urlArquivo)} disabled={!isValidUrl(doc.urlArquivo)} className="p-1.5 rounded-lg hover:bg-blue-50 text-navy-400 hover:text-blue-600 disabled:opacity-30 disabled:cursor-not-allowed" title="Abrir documento">
+                        <ExternalLink className="w-4 h-4" />
+                      </button>
+                      <button onClick={() => downloadDoc(doc.urlArquivo, doc.nomeArquivo)} disabled={!isValidUrl(doc.urlArquivo)} className="p-1.5 rounded-lg hover:bg-cream-100 text-navy-400 hover:text-navy-700 disabled:opacity-30 disabled:cursor-not-allowed" title="Baixar">
+                        <Download className="w-4 h-4" />
+                      </button>
                       <button onClick={() => openEdit(doc)} className="p-1.5 rounded-lg hover:bg-cream-100 text-navy-400 hover:text-navy-700" title="Editar">
                         <Pencil className="w-4 h-4" />
                       </button>
