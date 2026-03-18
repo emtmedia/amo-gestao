@@ -7,20 +7,23 @@ const SUPABASE_URL = 'https://qwhiymkxudgckefwzcpk.supabase.co'
 const BUCKET_NAME  = 'arquivos-referencia'
 
 function getKey() {
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY
-  if (!key) throw new Error('SUPABASE_SERVICE_ROLE_KEY não configurada')
-  return key
+  return process.env.SUPABASE_SERVICE_ROLE_KEY || ''
 }
 
-// Extract storage path from full public URL, or use pathArquivo directly
+// Extract storage path from pathArquivo or from URL
 function extractPath(doc: { pathArquivo?: string | null; urlArquivo: string }): string | null {
   if (doc.pathArquivo) return doc.pathArquivo
 
-  // Try to extract from URL: .../object/public/<bucket>/<path>
-  const marker = `/object/public/${BUCKET_NAME}/`
-  const idx = doc.urlArquivo.indexOf(marker)
-  if (idx !== -1) return doc.urlArquivo.slice(idx + marker.length)
-
+  // Try: .../object/public/<bucket>/<path>
+  const markers = [
+    `/object/public/${BUCKET_NAME}/`,
+    `/object/sign/${BUCKET_NAME}/`,
+    `/${BUCKET_NAME}/`,
+  ]
+  for (const m of markers) {
+    const idx = doc.urlArquivo.indexOf(m)
+    if (idx !== -1) return doc.urlArquivo.slice(idx + m.length).split('?')[0]
+  }
   return null
 }
 
@@ -29,38 +32,41 @@ export async function GET(_: NextRequest, { params }: { params: { id: string } }
     const doc = await prisma.documentoAMO.findUnique({ where: { id: params.id } })
     if (!doc) return NextResponse.json({ error: 'Documento não encontrado' }, { status: 404 })
 
-    const storagePath = extractPath(doc)
-
-    // If no storage path (e.g. placeholder URL), redirect directly — will likely fail but is the best we can do
-    if (!storagePath || !doc.urlArquivo.startsWith('http')) {
-      return NextResponse.json({ error: 'Arquivo não disponível no storage.' }, { status: 400 })
+    // If placeholder or no real URL, fail clearly
+    if (!doc.urlArquivo || !doc.urlArquivo.startsWith('http')) {
+      return NextResponse.json({ error: 'Este documento não possui arquivo armazenado.' }, { status: 400 })
     }
 
     const key = getKey()
+    const storagePath = extractPath(doc)
 
-    // Create a signed URL valid for 1 hour
-    const res = await fetch(
-      `${SUPABASE_URL}/storage/v1/object/sign/${BUCKET_NAME}/${storagePath}`,
-      {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${key}`,
-          apikey: key,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ expiresIn: 3600 }),
+    // Try signed URL first (works even if bucket is private)
+    if (storagePath && key) {
+      const res = await fetch(
+        `${SUPABASE_URL}/storage/v1/object/sign/${BUCKET_NAME}/${storagePath}`,
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${key}`,
+            apikey: key,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ expiresIn: 3600 }),
+        }
+      )
+
+      if (res.ok) {
+        const json = await res.json()
+        // signedURL may be "/object/sign/..." or a full URL
+        const signedUrl = json.signedURL?.startsWith('http')
+          ? json.signedURL
+          : `${SUPABASE_URL}/storage/v1${json.signedURL}`
+        return NextResponse.redirect(signedUrl)
       }
-    )
-
-    if (!res.ok) {
-      // Fallback: redirect to public URL directly
-      return NextResponse.redirect(doc.urlArquivo)
     }
 
-    const json = await res.json()
-    const signedUrl = `${SUPABASE_URL}/storage/v1${json.signedURL}`
-
-    return NextResponse.redirect(signedUrl)
+    // Fallback: redirect directly to stored URL
+    return NextResponse.redirect(doc.urlArquivo)
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error)
     return NextResponse.json({ error: msg }, { status: 500 })
