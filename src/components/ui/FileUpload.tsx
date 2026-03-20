@@ -10,9 +10,10 @@
  */
 
 import { useRef, useState, useEffect, lazy, Suspense } from 'react'
-import { Paperclip, X, FileText, Image, File, AlertCircle, Upload, Loader2, ExternalLink, ScanLine } from 'lucide-react'
+import { Paperclip, X, FileText, Image, File, AlertCircle, Upload, Loader2, ExternalLink, ScanLine, Inbox } from 'lucide-react'
 
 const ScannerCapture = lazy(() => import('./ScannerCapture'))
+const InboxPickerModal = lazy(() => import('./InboxPickerModal'))
 
 export interface UploadedFile {
   name: string
@@ -87,12 +88,20 @@ export default function FileUpload({
   const [uploading,     setUploading]     = useState(false)
   const [uploadingNames,setUploadingNames]= useState<string[]>([])
   const [scannerOpen,   setScannerOpen]   = useState(false)
+  const [inboxOpen,     setInboxOpen]     = useState(false)
 
   useEffect(() => { setFiles(deserializeFiles(value)) }, [value])
 
   async function handleScanCapture(file: File) {
     setScannerOpen(false)
     await processFiles([file])
+  }
+
+  function handleInboxSelect(doc: { name: string; type: string; size: number; url: string; path?: string }) {
+    const uploadedFile: UploadedFile = { name: doc.name, type: doc.type, size: doc.size, url: doc.url, path: doc.path }
+    const next = [...files, uploadedFile]
+    setFiles(next)
+    onChange(serializeFiles(next))
   }
 
   async function uploadToStorage(file: File): Promise<UploadedFile> {
@@ -170,6 +179,19 @@ export default function FileUpload({
 
         <button
           type="button"
+          onClick={() => setInboxOpen(true)}
+          disabled={uploading || files.length >= maxFiles}
+          className="flex flex-col items-center justify-center gap-1.5 px-4 border-2 border-dashed border-green-300 rounded-lg
+            bg-green-50 hover:bg-green-100 hover:border-green-400 transition-colors text-green-600
+            disabled:opacity-40 disabled:cursor-not-allowed min-w-[100px]"
+          title="Selecionar documento do Inbox"
+        >
+          <Inbox size={20} />
+          <span className="text-xs font-medium leading-tight text-center">Obter do<br/>Inbox</span>
+        </button>
+
+        <button
+          type="button"
           onClick={() => setScannerOpen(true)}
           disabled={uploading || files.length >= maxFiles}
           className="flex flex-col items-center justify-center gap-1.5 px-4 border-2 border-dashed border-blue-300 rounded-lg
@@ -185,6 +207,12 @@ export default function FileUpload({
       {scannerOpen && (
         <Suspense fallback={null}>
           <ScannerCapture open={scannerOpen} onClose={() => setScannerOpen(false)} onCapture={handleScanCapture} />
+        </Suspense>
+      )}
+
+      {inboxOpen && (
+        <Suspense fallback={null}>
+          <InboxPickerModal open={inboxOpen} onClose={() => setInboxOpen(false)} onSelect={handleInboxSelect} />
         </Suspense>
       )}
 

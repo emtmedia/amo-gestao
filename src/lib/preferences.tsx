@@ -13,6 +13,8 @@ export interface UserPreferences {
   sidebarExpanded: boolean
   darkMode: boolean
   documentsView: 'cards' | 'list'
+  relatorioIaNovaAba: boolean
+  relatorioIaColapsarMenu: boolean
   scanner: ScannerSettings
 }
 
@@ -20,6 +22,8 @@ const defaultPrefs: UserPreferences = {
   sidebarExpanded: true,
   darkMode: false,
   documentsView: 'cards',
+  relatorioIaNovaAba: true,
+  relatorioIaColapsarMenu: false,
   scanner: {
     colorMode: 'color',
     resolution: 200,

@@ -35,7 +35,9 @@ export async function middleware(request: NextRequest) {
     if (pathname.startsWith('/api/')) {
       return NextResponse.json({ error: 'Não autenticado.' }, { status: 401 })
     }
-    return NextResponse.redirect(new URL('/login', request.url))
+    const loginUrl = new URL('/login', request.url)
+    loginUrl.searchParams.set('redirect', pathname)
+    return NextResponse.redirect(loginUrl)
   }
 
   const session = await verifySession(token)
@@ -43,7 +45,9 @@ export async function middleware(request: NextRequest) {
     if (pathname.startsWith('/api/')) {
       return NextResponse.json({ error: 'Sessão expirada.' }, { status: 401 })
     }
-    const response = NextResponse.redirect(new URL('/login', request.url))
+    const loginUrl = new URL('/login', request.url)
+    loginUrl.searchParams.set('redirect', pathname)
+    const response = NextResponse.redirect(loginUrl)
     response.cookies.delete('amo_session')
     return response
   }

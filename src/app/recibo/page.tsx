@@ -166,11 +166,12 @@ export default function ReciboPage() {
       </div>
       <p class="corpo">
         Eu, <span class="destaque">${data.nomeRecebedor}</span>, recebi da
-        <strong>Associação Missão Ômega</strong> o valor de
+        <strong>Associação Missão Ômega</strong>, CNPJ 13.893.642/0001-09, localizada na
+        Av. Macapa, n° 520, Veneza, Ipatinga/MG, o valor de
         <span class="destaque">${valorFmt}</span>
         pela seguinte prestação de serviço:
-        <span class="destaque">${data.descricao}</span>.
       </p>
+      <p class="corpo" style="margin-top:12px;">• <span class="destaque">${data.descricao}</span></p>
       <div class="assinatura">
         <div class="linha-assinatura"></div>
         <div class="nome-assinatura">${data.nomeRecebedor}</div>
@@ -357,12 +358,15 @@ function ReciboContent({
 
       {/* Corpo */}
       <div style={{ fontSize: '15px', lineHeight: '1.9', color: '#222', flex: 1 }}>
-        <p style={{ marginBottom: '24px', textAlign: 'justify' }}>
+        <p style={{ marginBottom: '16px', textAlign: 'justify' }}>
           Eu, {ph(nomeRecebedor, '_______________________________')}, recebi da{' '}
-          <strong>Associação Missão Ômega</strong> o valor de{' '}
+          <strong>Associação Missão Ômega</strong>, CNPJ 13.893.642/0001-09, localizada na{' '}
+          Av. Macapa, n° 520, Veneza, Ipatinga/MG, o valor de{' '}
           {ph(fmtValor(valor) === 'R$ ___________' ? '' : fmtValor(valor), 'R$ ___________')}{' '}
-          pela seguinte prestação de serviço:{' '}
-          {ph(descricao, '_______________________________')}.
+          pela seguinte prestação de serviço:
+        </p>
+        <p style={{ textAlign: 'justify' }}>
+          {'• '}{ph(descricao, '_______________________________')}
         </p>
       </div>
 

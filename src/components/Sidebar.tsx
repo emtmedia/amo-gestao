@@ -8,7 +8,7 @@ import {
   TrendingUp, TrendingDown, Handshake, FileText,
   ChevronDown, ChevronRight, Menu, X, Settings,
   MapPin, CreditCard, Briefcase, BookOpen, Package,
-  Wrench, Utensils, PieChart, Sparkles, Receipt, ClipboardList
+  Wrench, Utensils, PieChart, Sparkles, Receipt, ClipboardList, Lock, Inbox
 } from 'lucide-react'
 import { usePreferences } from '@/lib/preferences'
 
@@ -24,61 +24,61 @@ interface NavItem {
 const navItems: NavItem[] = [
   { label: 'Início', icon: Home, href: '/' },
   {
-    label: 'Cadastros Base', icon: Settings,
+    label: 'Receitas', icon: TrendingUp,
     children: [
-      { label: 'Departamentos', icon: Building2, href: '/cadastros/departamentos' },
-      { label: 'Contas Bancárias', icon: CreditCard, href: '/cadastros/contas-bancarias' },
-      { label: 'UF & Cidades', icon: MapPin, href: '/cadastros/uf-cidades' },
+      { label: 'Cursos/Treinamentos', icon: BookOpen, href: '/cadastros/receitas/cursos' },
+      { label: 'Eventos com Bilheteria', icon: Calendar, href: '/cadastros/receitas/eventos' },
+      { label: 'Outras Receitas', icon: TrendingUp, href: '/cadastros/receitas/outras' },
+      { label: 'Pessoa Física', icon: TrendingUp, href: '/cadastros/receitas/pessoa-fisica' },
+      { label: 'Pessoa Jurídica', icon: TrendingUp, href: '/cadastros/receitas/pessoa-juridica' },
+      { label: 'Produtos', icon: Package, href: '/cadastros/receitas/produtos' },
+      { label: 'Receita Pública', icon: TrendingUp, href: '/cadastros/receitas/publica' },
+      { label: 'Serviços', icon: Wrench, href: '/cadastros/receitas/servicos' },
+    ]
+  },
+  {
+    label: 'Despesas', icon: TrendingDown,
+    children: [
+      { label: 'Aquisições', icon: Package, href: '/cadastros/aquisicoes' },
+      { label: 'Conservação/Zeladoria', icon: Wrench, href: '/cadastros/despesas/conservacao' },
+      { label: 'Contas de Consumo', icon: TrendingDown, href: '/cadastros/despesas/consumo' },
+      { label: 'Copa e Cozinha', icon: Utensils, href: '/cadastros/despesas/copa-cozinha' },
+      { label: 'Locação de Equipamentos', icon: TrendingDown, href: '/cadastros/despesas/locacao' },
+      { label: 'Serviços Digitais', icon: TrendingDown, href: '/cadastros/despesas/digital' },
+      { label: 'Serviços Externos', icon: TrendingDown, href: '/cadastros/despesas/externos' },
+    ]
+  },
+  {
+    label: 'Projetos', icon: FolderOpen,
+    children: [
+      { label: 'Consolidação de Projetos', icon: PieChart, href: '/cadastros/consolidacoes/projetos' },
+      { label: 'Extrato de Projeto', icon: FileText, href: '/cadastros/projetos/extrato' },
+      { label: 'Projetos de Filantropia', icon: FolderOpen, href: '/cadastros/projetos' },
+    ]
+  },
+  {
+    label: 'Eventos', icon: Calendar,
+    children: [
+      { label: 'Consolidação de Eventos', icon: PieChart, href: '/cadastros/consolidacoes/eventos' },
+      { label: 'Eventos', icon: Calendar, href: '/cadastros/eventos' },
+      { label: 'Extrato de Evento', icon: FileText, href: '/cadastros/eventos/extrato' },
     ]
   },
   {
     label: 'Voluntários', icon: Users,
     children: [
       { label: 'Cadastro de Voluntários', icon: Users, href: '/cadastros/voluntarios-amo' },
-      { label: 'Voluntários para Projeto', icon: Users, href: '/cadastros/voluntarios-projeto' },
-      { label: 'Voluntários para Evento', icon: Users, href: '/cadastros/voluntarios-evento' },
       { label: 'Termo de Voluntariado', icon: ClipboardList, href: '/termo-voluntariado' },
+      { label: 'Voluntários para Evento', icon: Users, href: '/cadastros/voluntarios-evento' },
+      { label: 'Voluntários para Projeto', icon: Users, href: '/cadastros/voluntarios-projeto' },
     ]
   },
   {
-    label: 'Projetos', icon: FolderOpen,
+    label: 'Fornecedores', icon: Handshake,
     children: [
-      { label: 'Projetos de Filantropia', icon: FolderOpen, href: '/cadastros/projetos' },
-      { label: 'Extrato de Projeto', icon: FileText, href: '/cadastros/projetos/extrato' },
-      { label: 'Consolidação de Projetos', icon: PieChart, href: '/cadastros/consolidacoes/projetos' },
-    ]
-  },
-  {
-    label: 'Eventos', icon: Calendar,
-    children: [
-      { label: 'Eventos', icon: Calendar, href: '/cadastros/eventos' },
-      { label: 'Extrato de Evento', icon: FileText, href: '/cadastros/eventos/extrato' },
-      { label: 'Consolidação de Eventos', icon: PieChart, href: '/cadastros/consolidacoes/eventos' },
-    ]
-  },
-  {
-    label: 'Receitas', icon: TrendingUp,
-    children: [
-      { label: 'Receita Pública', icon: TrendingUp, href: '/cadastros/receitas/publica' },
-      { label: 'Pessoa Física', icon: TrendingUp, href: '/cadastros/receitas/pessoa-fisica' },
-      { label: 'Pessoa Jurídica', icon: TrendingUp, href: '/cadastros/receitas/pessoa-juridica' },
-      { label: 'Cursos/Treinamentos', icon: BookOpen, href: '/cadastros/receitas/cursos' },
-      { label: 'Produtos', icon: Package, href: '/cadastros/receitas/produtos' },
-      { label: 'Serviços', icon: Wrench, href: '/cadastros/receitas/servicos' },
-      { label: 'Eventos com Bilheteria', icon: Calendar, href: '/cadastros/receitas/eventos' },
-      { label: 'Outras Receitas', icon: TrendingUp, href: '/cadastros/receitas/outras' },
-    ]
-  },
-  {
-    label: 'Despesas', icon: TrendingDown,
-    children: [
-      { label: 'Contas de Consumo', icon: TrendingDown, href: '/cadastros/despesas/consumo' },
-      { label: 'Serviços Digitais', icon: TrendingDown, href: '/cadastros/despesas/digital' },
-      { label: 'Conservação/Zeladoria', icon: Wrench, href: '/cadastros/despesas/conservacao' },
-      { label: 'Locação de Equipamentos', icon: TrendingDown, href: '/cadastros/despesas/locacao' },
-      { label: 'Serviços Externos', icon: TrendingDown, href: '/cadastros/despesas/externos' },
-      { label: 'Copa e Cozinha', icon: Utensils, href: '/cadastros/despesas/copa-cozinha' },
-      { label: 'Aquisições', icon: Package, href: '/cadastros/aquisicoes' },
+      { label: 'Cadastrar Fornecedores', icon: Handshake, href: '/cadastros/fornecedores' },
+      { label: 'Categorias', icon: Handshake, href: '/cadastros/fornecedores/categorias' },
+      { label: 'Subcategorias', icon: Handshake, href: '/cadastros/fornecedores/subcategorias' },
     ]
   },
   {
@@ -89,29 +89,30 @@ const navItems: NavItem[] = [
     ]
   },
   {
-    label: 'Fornecedores', icon: Handshake,
+    label: 'Cadastros Base', icon: Settings,
     children: [
-      { label: 'Categorias', icon: Handshake, href: '/cadastros/fornecedores/categorias' },
-      { label: 'Subcategorias', icon: Handshake, href: '/cadastros/fornecedores/subcategorias' },
-      { label: 'Lista de Fornecedores', icon: Handshake, href: '/cadastros/fornecedores' },
+      { label: 'Contas Bancárias', icon: CreditCard, href: '/cadastros/contas-bancarias' },
+      { label: 'Departamentos', icon: Building2, href: '/cadastros/departamentos' },
+      { label: 'UF & Cidades', icon: MapPin, href: '/cadastros/uf-cidades' },
     ]
   },
+  { label: 'Biblioteca de Documentos', icon: FolderOpen, href: '/cadastros/documentos' },
+  { label: 'Inbox', icon: Inbox, href: '/inbox' },
+  { label: 'Relatórios com IA', icon: Sparkles, href: '/relatorio-ia' },
   {
     label: 'Imóveis', icon: Building2,
     children: [
       { label: 'Contratos de Locação', icon: Building2, href: '/cadastros/imoveis' },
     ]
   },
-  { label: 'Tabelas Auxiliares', icon: Settings, href: '/cadastros/auxiliares' },
-  { label: 'Biblioteca de Documentos', icon: FolderOpen, href: '/cadastros/documentos' },
-  { label: 'Relatórios com IA', icon: Sparkles, href: '/relatorio-ia', newTab: true },
   {
     label: 'Configurações', icon: Settings,
     children: [
       { label: 'Emissão de Recibo', icon: Receipt, href: '/recibo' },
-      { label: 'Preferências', icon: Settings, href: '/configuracoes' },
       { label: 'Guia do Usuário', icon: BookOpen, href: '/configuracoes/guia' },
       { label: 'Log de Auditoria', icon: FileText, href: '/admin/audit-log', adminOnly: true },
+      { label: 'Preferências', icon: Settings, href: '/configuracoes' },
+      { label: 'Tabelas Auxiliares', icon: Settings, href: '/cadastros/auxiliares', adminOnly: true },
       { label: 'Usuários do Sistema', icon: Users, href: '/admin/usuarios', adminOnly: true },
     ]
   },
@@ -119,16 +120,20 @@ const navItems: NavItem[] = [
 
 function NavItemComponent({ item, depth = 0, isAdmin = false }: { item: NavItem; depth?: number; isAdmin?: boolean }) {
   const pathname = usePathname()
+  const { prefs } = usePreferences()
 
-  // Hide admin-only items from non-admins
-  if (item.adminOnly && !isAdmin) return null
+  const isDisabled = item.adminOnly && !isAdmin
 
-  const visibleChildren = item.children?.filter(c => !c.adminOnly || isAdmin)
+  // Show all children (admin-only ones will render as disabled)
+  const visibleChildren = item.children
   const hasChildren = visibleChildren && visibleChildren.length > 0
   const isActive = item.href === pathname
-  const isParentActive = hasChildren && visibleChildren?.some(c => c.href === pathname)
+  const isParentActive = hasChildren && visibleChildren?.some(c => c.href === pathname && (!c.adminOnly || isAdmin))
   const [open, setOpen] = useState(() => isParentActive ?? false)
   const itemRef = useRef<HTMLDivElement>(null)
+
+  // Dynamic newTab: use preference for relatorio-ia, otherwise use item.newTab
+  const effectiveNewTab = item.href === '/relatorio-ia' ? prefs.relatorioIaNovaAba : (item.newTab ?? false)
 
   useEffect(() => {
     if (open && itemRef.current) {
@@ -163,13 +168,26 @@ function NavItemComponent({ item, depth = 0, isAdmin = false }: { item: NavItem;
     )
   }
 
+  if (isDisabled) {
+    return (
+      <div
+        className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium opacity-40 cursor-not-allowed select-none text-navy-400"
+        title="Acesso restrito a administradores"
+      >
+        <item.icon className="w-4 h-4" />
+        {item.label}
+        <Lock className="w-3 h-3 ml-auto" />
+      </div>
+    )
+  }
+
   return (
-    <Link href={item.href!} target={item.newTab ? '_blank' : undefined} rel={item.newTab ? 'noopener noreferrer' : undefined}>
+    <Link href={item.href!} target={effectiveNewTab ? '_blank' : undefined} rel={effectiveNewTab ? 'noopener noreferrer' : undefined}>
       <div className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all
         ${isActive ? 'bg-navy-700 text-cream-50' : 'text-navy-600 hover:bg-cream-200 hover:text-navy-800'}`}>
         <item.icon className="w-4 h-4" />
         {item.label}
-        {item.newTab && <span className="ml-auto text-xs opacity-40">↗</span>}
+        {effectiveNewTab && <span className="ml-auto text-xs opacity-40">↗</span>}
       </div>
     </Link>
   )
@@ -177,6 +195,7 @@ function NavItemComponent({ item, depth = 0, isAdmin = false }: { item: NavItem;
 
 export default function Sidebar() {
   const { prefs } = usePreferences()
+  const pathname = usePathname()
   const [collapsed, setCollapsed] = useState(false)
   const [isAdmin, setIsAdmin] = useState(false)
 
@@ -184,6 +203,13 @@ export default function Sidebar() {
   useEffect(() => {
     setCollapsed(!prefs.sidebarExpanded)
   }, [prefs.sidebarExpanded])
+
+  // Collapse sidebar when navigating to Relatórios com IA (if preference is enabled)
+  useEffect(() => {
+    if (pathname === '/relatorio-ia' && prefs.relatorioIaColapsarMenu) {
+      setCollapsed(true)
+    }
+  }, [pathname, prefs.relatorioIaColapsarMenu])
 
   // Fetch user role
   useEffect(() => {

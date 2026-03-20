@@ -1,10 +1,12 @@
 'use client'
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, Suspense } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { Eye, EyeOff, LogIn, Lock, Mail } from 'lucide-react'
 
-export default function LoginPage() {
+function LoginForm() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const redirectTo = searchParams.get('redirect') || '/'
   const [email, setEmail] = useState('')
   const [senha, setSenha] = useState('')
   const [showSenha, setShowSenha] = useState(false)
@@ -29,6 +31,7 @@ export default function LoginPage() {
       // Store usuarioId temporarily in sessionStorage for OTP verification
       sessionStorage.setItem('otp_usuarioId', data.usuarioId)
       sessionStorage.setItem('otp_email', email)
+      sessionStorage.setItem('otp_redirect', redirectTo)
       router.push('/verificar-otp')
     } catch {
       setError('Erro de conexão. Tente novamente.')
@@ -126,5 +129,13 @@ export default function LoginPage() {
         </p>
       </div>
     </div>
+  )
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense>
+      <LoginForm />
+    </Suspense>
   )
 }

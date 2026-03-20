@@ -842,6 +842,7 @@ model Usuario {
 
   codigos            CodigoOTP[]
   tokensReset        TokenResetSenha[]
+  inboxDocumentos    InboxDocumento[]
 }
 
 // ============================================
@@ -960,4 +961,27 @@ model TermoVoluntariado {
   eventoNome     String?
   emitidoEm      DateTime @default(now())
   createdAt      DateTime @default(now())
+}
+
+// ============================================
+// INBOX DE DOCUMENTOS
+// ============================================
+model InboxDocumento {
+  id                String   @id @default(cuid())
+  descricao         String
+  dataVencimento    DateTime
+  nomeArquivo       String
+  tipoArquivo       String
+  tamanhoArquivo    Int
+  urlArquivo        String
+  pathArquivo       String?
+  origemCaptura     String   @default("upload")
+  status            String   @default("pendente")
+  enviadoPorId      String
+  enviadoPorNome    String
+  enviadoPorEmail   String
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  enviadoPor        Usuario  @relation(fields: [enviadoPorId], references: [id])
 }

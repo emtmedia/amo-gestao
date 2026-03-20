@@ -8,6 +8,9 @@ const nextConfig = {
   },
   experimental: {
     serverComponentsExternalPackages: ['@prisma/client', 'prisma', 'bcryptjs'],
+    serverActions: {
+      bodySizeLimit: '10mb',
+    },
   },
   images: {
     remotePatterns: [

@@ -1,7 +1,7 @@
 'use client'
 
 import { usePreferences } from '@/lib/preferences'
-import { Settings, ScanLine, Palette, PanelLeftOpen, Monitor, Moon, Sun, Check, LayoutGrid, List } from 'lucide-react'
+import { Settings, ScanLine, Palette, PanelLeftOpen, Monitor, Moon, Sun, Check, LayoutGrid, List, Sparkles, ExternalLink } from 'lucide-react'
 import { useState, useEffect } from 'react'
 
 export default function ConfiguracoesPage() {
@@ -245,6 +245,65 @@ export default function ConfiguracoesPage() {
                   <List className="w-3.5 h-3.5" /> Lista
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+
+        {/* ── Seção 3: Relatórios com IA ── */}
+        <div className="card">
+          <div className="flex items-center gap-2 mb-5">
+            <div className="w-9 h-9 rounded-xl bg-violet-100 dark:bg-violet-900/40 flex items-center justify-center">
+              <Sparkles className="w-5 h-5 text-violet-600 dark:text-violet-400" />
+            </div>
+            <div>
+              <h2 className="font-semibold text-navy-800 dark:text-gray-100">Relatórios com IA</h2>
+              <p className="text-xs text-navy-500 dark:text-gray-400">Comportamento ao acessar a seção de Relatórios com IA.</p>
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            {/* Abrir em nova aba */}
+            <div className="flex items-center justify-between p-4 rounded-xl border border-gray-200 dark:border-gray-600">
+              <div className="flex items-center gap-3">
+                <ExternalLink className="w-5 h-5 text-violet-500" />
+                <div>
+                  <p className="font-medium text-sm text-navy-800 dark:text-gray-100">Abrir em nova aba</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">O link de Relatórios com IA abrirá em uma nova aba do navegador.</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => { updatePrefs({ relatorioIaNovaAba: !prefs.relatorioIaNovaAba }); save() }}
+                className={`relative w-12 h-7 rounded-full transition-colors duration-300 ${
+                  prefs.relatorioIaNovaAba ? 'bg-violet-500' : 'bg-gray-300 dark:bg-gray-600'
+                }`}
+              >
+                <span className={`absolute top-1 left-1 w-5 h-5 bg-white rounded-full shadow-sm transition-transform duration-300 ${
+                  prefs.relatorioIaNovaAba ? 'translate-x-5' : 'translate-x-0'
+                }`} />
+              </button>
+            </div>
+
+            {/* Colapsar menu */}
+            <div className="flex items-center justify-between p-4 rounded-xl border border-gray-200 dark:border-gray-600">
+              <div className="flex items-center gap-3">
+                <PanelLeftOpen className="w-5 h-5 text-violet-500" />
+                <div>
+                  <p className="font-medium text-sm text-navy-800 dark:text-gray-100">Colapsar menu lateral</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Recolhe automaticamente o menu ao entrar em Relatórios com IA.</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => { updatePrefs({ relatorioIaColapsarMenu: !prefs.relatorioIaColapsarMenu }); save() }}
+                className={`relative w-12 h-7 rounded-full transition-colors duration-300 ${
+                  prefs.relatorioIaColapsarMenu ? 'bg-violet-500' : 'bg-gray-300 dark:bg-gray-600'
+                }`}
+              >
+                <span className={`absolute top-1 left-1 w-5 h-5 bg-white rounded-full shadow-sm transition-transform duration-300 ${
+                  prefs.relatorioIaColapsarMenu ? 'translate-x-5' : 'translate-x-0'
+                }`} />
+              </button>
             </div>
           </div>
         </div>

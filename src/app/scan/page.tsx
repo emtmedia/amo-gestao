@@ -1,0 +1,510 @@
+// src/app/scan/page.tsx
+'use client'
+
+import { useState, useRef, useEffect, useCallback } from 'react'
+import {
+  Camera, Upload, X, RotateCcw, Check, Send, Loader2, AlertCircle,
+  FileText, Image, FileSpreadsheet, File, ChevronLeft, LogOut,
+  ScanLine, Paperclip, CheckCircle2, Calendar, AlignLeft
+} from 'lucide-react'
+
+type Step = 'home' | 'camera' | 'preview' | 'form' | 'uploading' | 'success'
+
+interface UserSession {
+  nome: string
+  email: string
+}
+
+function fmtSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1048576) return `${(bytes / 1024).toFixed(1)} KB`
+  return `${(bytes / 1048576).toFixed(1)} MB`
+}
+
+function FileIcon({ type, size = 24 }: { type: string; size?: number }) {
+  if (type.startsWith('image/')) return <Image size={size} className="text-blue-500" />
+  if (type.includes('pdf')) return <FileText size={size} className="text-red-500" />
+  if (type.includes('spreadsheet') || type.includes('excel') || type.includes('.sheet'))
+    return <FileSpreadsheet size={size} className="text-green-600" />
+  if (type.includes('word') || type.includes('.document'))
+    return <FileText size={size} className="text-blue-600" />
+  return <File size={size} className="text-gray-500" />
+}
+
+// Detect iOS (iPhone/iPad) — getUserMedia canvas capture is unreliable on iOS Safari PWA
+function isIOSDevice(): boolean {
+  if (typeof navigator === 'undefined') return false
+  return /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
+}
+
+export default function ScanPage() {
+  const [user, setUser]           = useState<UserSession | null>(null)
+  const [authLoading, setAuthLoading] = useState(true)
+  const [step, setStep]           = useState<Step>('home')
+  const [file, setFile]           = useState<File | null>(null)
+  const [previewUrl, setPreviewUrl] = useState('')
+  const [origemCaptura, setOrigemCaptura] = useState<'camera' | 'upload'>('upload')
+  const [descricao, setDescricao] = useState('')
+  const [dataVencimento, setDataVencimento] = useState('')
+  const [error, setError]         = useState('')
+  const [uploadProgress, setUploadProgress] = useState('')
+  const [isIOS, setIsIOS]         = useState(false)
+
+  const videoRef     = useRef<HTMLVideoElement>(null)
+  const streamRef    = useRef<MediaStream | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const cameraInputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => { setIsIOS(isIOSDevice()) }, [])
+
+  // ─── Auth check ───
+  useEffect(() => {
+    fetch('/api/auth/me')
+      .then(r => r.json())
+      .then(data => {
+        if (data.usuario) setUser(data.usuario)
+        else window.location.href = '/login?redirect=/scan'
+      })
+      .catch(() => { window.location.href = '/login?redirect=/scan' })
+      .finally(() => {
+        setAuthLoading(false)
+        if ('serviceWorker' in navigator) {
+          navigator.serviceWorker.register('/sw-scan.js').catch(() => {})
+        }
+      })
+  }, [])
+
+  // ─── Cleanup ───
+  useEffect(() => {
+    return () => {
+      stopCamera()
+      if (previewUrl) URL.revokeObjectURL(previewUrl)
+    }
+  }, [])
+
+  // ─── Camera functions ───
+  const stopCamera = useCallback(() => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(t => t.stop())
+      streamRef.current = null
+    }
+  }, [])
+
+  // ─── iOS: native camera via <input capture> ───
+  function openNativeCamera() {
+    setError('')
+    setOrigemCaptura('camera')
+    cameraInputRef.current?.click()
+  }
+
+  function handleNativeCameraCapture(e: React.ChangeEvent<HTMLInputElement>) {
+    const selected = e.target.files?.[0]
+    if (!selected) return
+    setFile(selected)
+    setOrigemCaptura('camera')
+    setError('')
+    const url = URL.createObjectURL(selected)
+    if (previewUrl) URL.revokeObjectURL(previewUrl)
+    setPreviewUrl(url)
+    setStep('preview')
+    e.target.value = ''
+  }
+
+  // ─── Non-iOS: getUserMedia live preview ───
+  async function startCamera() {
+    setError('')
+    setStep('camera')
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: 'environment' } }
+      })
+      streamRef.current = stream
+      const video = videoRef.current
+      if (video) {
+        video.srcObject = stream
+        await video.play()
+      }
+    } catch (err) {
+      console.error('Camera error:', err)
+      if (err instanceof DOMException && err.name === 'NotAllowedError') {
+        setError('Permissão de câmera negada. Verifique as configurações do navegador.')
+      } else {
+        setError('Não foi possível acessar a câmera.')
+      }
+      setStep('home')
+    }
+  }
+
+  function capturePhoto() {
+    try {
+      const video = videoRef.current
+      if (!video) { setError('Câmera não disponível. Tente novamente.'); return }
+
+      const w = video.videoWidth
+      const h = video.videoHeight
+      if (!w || !h) {
+        setError('Câmera ainda carregando. Aguarde um instante e tente novamente.')
+        return
+      }
+
+      const canvas = document.createElement('canvas')
+      canvas.width = w
+      canvas.height = h
+      const ctx = canvas.getContext('2d')
+      if (!ctx) { setError('Erro ao inicializar captura.'); return }
+
+      ctx.drawImage(video, 0, 0, w, h)
+
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.90)
+      if (!dataUrl || dataUrl === 'data:,') { setError('Falha ao capturar imagem. Tente novamente.'); return }
+
+      const byteStr = atob(dataUrl.split(',')[1])
+      const buf = new Uint8Array(byteStr.length)
+      for (let i = 0; i < byteStr.length; i++) buf[i] = byteStr.charCodeAt(i)
+      const blob = new Blob([buf], { type: 'image/jpeg' })
+
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)
+      const f = new File([blob], `scan_${timestamp}.jpg`, { type: 'image/jpeg' })
+      setFile(f)
+      setOrigemCaptura('camera')
+      const url = URL.createObjectURL(blob)
+      if (previewUrl) URL.revokeObjectURL(previewUrl)
+      setPreviewUrl(url)
+      stopCamera()
+      setStep('preview')
+    } catch (e) {
+      setError(`Erro ao capturar: ${e instanceof Error ? e.message : String(e)}`)
+    }
+  }
+
+  // ─── File picker ───
+  function openFilePicker() {
+    fileInputRef.current?.click()
+  }
+
+  function handleFileSelected(e: React.ChangeEvent<HTMLInputElement>) {
+    const selected = e.target.files?.[0]
+    if (!selected) return
+
+    if (selected.size > 10 * 1024 * 1024) {
+      setError('Arquivo excede o limite de 10 MB.')
+      return
+    }
+
+    setFile(selected)
+    setOrigemCaptura('upload')
+    setError('')
+
+    if (selected.type.startsWith('image/')) {
+      const url = URL.createObjectURL(selected)
+      if (previewUrl) URL.revokeObjectURL(previewUrl)
+      setPreviewUrl(url)
+    } else {
+      if (previewUrl) URL.revokeObjectURL(previewUrl)
+      setPreviewUrl('')
+    }
+
+    setStep('preview')
+    e.target.value = '' // Reset para permitir selecionar o mesmo arquivo
+  }
+
+  // ─── Navigation ───
+  function goHome() {
+    stopCamera()
+    if (previewUrl) URL.revokeObjectURL(previewUrl)
+    setFile(null)
+    setPreviewUrl('')
+    setDescricao('')
+    setDataVencimento('')
+    setError('')
+    setStep('home')
+  }
+
+  function goToForm() {
+    setStep('form')
+  }
+
+  function retakeOrReselect() {
+    if (previewUrl) URL.revokeObjectURL(previewUrl)
+    setPreviewUrl('')
+    setFile(null)
+    if (origemCaptura === 'camera') {
+      startCamera()
+    } else {
+      setStep('home')
+    }
+  }
+
+  // ─── Submit ───
+  async function handleSubmit() {
+    if (!file) return
+    if (!descricao.trim()) { setError('Descrição é obrigatória.'); return }
+    if (!dataVencimento)   { setError('Data de vencimento é obrigatória.'); return }
+
+    setError('')
+    setStep('uploading')
+    setUploadProgress('Enviando arquivo...')
+
+    try {
+      const fd = new FormData()
+      fd.append('file', file)
+      fd.append('descricao', descricao.trim())
+      fd.append('dataVencimento', dataVencimento)
+      fd.append('origemCaptura', origemCaptura)
+
+      setUploadProgress('Salvando no Inbox...')
+      const res = await fetch('/api/inbox', { method: 'POST', body: fd })
+      const data = await res.json()
+
+      if (data.ok) {
+        setStep('success')
+      } else {
+        setError(data.error || 'Erro ao enviar documento.')
+        setStep('form')
+      }
+    } catch {
+      setError('Erro de conexão. Verifique sua internet e tente novamente.')
+      setStep('form')
+    }
+  }
+
+  async function handleLogout() {
+    await fetch('/api/auth/logout', { method: 'POST' })
+    window.location.href = '/login?redirect=/scan'
+  }
+
+  // ─── Auth loading ───
+  if (authLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
+      </div>
+    )
+  }
+
+  if (!user) return null
+
+  return (
+    <div className="min-h-screen bg-slate-50 flex flex-col">
+      {/* ── Header ── */}
+      <header className="bg-slate-900 text-white px-4 py-3 flex items-center justify-between safe-area-top">
+        <div className="flex items-center gap-2.5">
+          {step !== 'home' && step !== 'success' && (
+            <button onClick={goHome} className="p-1 -ml-1 rounded-lg hover:bg-white/10">
+              <ChevronLeft size={22} />
+            </button>
+          )}
+          <ScanLine size={20} className="text-blue-400" />
+          <span className="font-semibold text-sm">AMO Scan</span>
+        </div>
+        <div className="flex items-center gap-3">
+          <span className="text-xs text-slate-400 hidden sm:block">{user.nome}</span>
+          <button onClick={handleLogout} className="p-1.5 rounded-lg hover:bg-white/10" title="Sair">
+            <LogOut size={16} className="text-slate-400" />
+          </button>
+        </div>
+      </header>
+
+      {/* ── Content ── */}
+      <main className="flex-1 flex flex-col p-4 max-w-lg mx-auto w-full">
+
+        {/* Erro global */}
+        {error && (
+          <div className="flex items-start gap-2 bg-red-50 border border-red-200 rounded-xl p-3 mb-4 text-sm text-red-700">
+            <AlertCircle size={16} className="mt-0.5 shrink-0" />
+            <span>{error}</span>
+            <button onClick={() => setError('')} className="ml-auto shrink-0"><X size={14} /></button>
+          </div>
+        )}
+
+        {/* ═══ STEP: HOME ═══ */}
+        {step === 'home' && (
+          <div className="flex-1 flex flex-col justify-center gap-4">
+            <div className="text-center mb-6">
+              <div className="inline-flex p-4 bg-blue-50 rounded-2xl mb-4">
+                <ScanLine size={40} className="text-blue-600" />
+              </div>
+              <h2 className="text-lg font-bold text-slate-800">Enviar Documento</h2>
+              <p className="text-sm text-slate-500 mt-1">Escaneie ou anexe um documento para o Inbox</p>
+            </div>
+
+            {/* iOS: native camera input; non-iOS: getUserMedia live preview */}
+            <button onClick={isIOS ? openNativeCamera : startCamera}
+              className="flex items-center gap-4 w-full p-5 bg-white border-2 border-blue-200 rounded-2xl hover:border-blue-400 hover:bg-blue-50 transition-all active:scale-[0.98]">
+              <div className="p-3 bg-blue-100 rounded-xl">
+                <Camera size={24} className="text-blue-600" />
+              </div>
+              <div className="text-left">
+                <p className="font-semibold text-slate-800">Escanear Documento</p>
+                <p className="text-xs text-slate-500 mt-0.5">Abrir câmera para fotografar</p>
+              </div>
+            </button>
+            {/* Hidden input for iOS native camera capture */}
+            <input ref={cameraInputRef} type="file" accept="image/*" capture="environment"
+              className="hidden" onChange={handleNativeCameraCapture} />
+
+            <button onClick={openFilePicker}
+              className="flex items-center gap-4 w-full p-5 bg-white border-2 border-slate-200 rounded-2xl hover:border-slate-400 hover:bg-slate-50 transition-all active:scale-[0.98]">
+              <div className="p-3 bg-slate-100 rounded-xl">
+                <Paperclip size={24} className="text-slate-600" />
+              </div>
+              <div className="text-left">
+                <p className="font-semibold text-slate-800">Anexar Arquivo</p>
+                <p className="text-xs text-slate-500 mt-0.5">.png .jpg .pdf .docx .xlsx e outros</p>
+              </div>
+            </button>
+
+            <input ref={fileInputRef} type="file" className="hidden"
+              accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.csv,.txt"
+              onChange={handleFileSelected} />
+          </div>
+        )}
+
+        {/* ═══ STEP: CAMERA ═══ */}
+        {step === 'camera' && (
+          <div className="flex-1 flex flex-col gap-3">
+            <div className="relative flex-1 bg-black rounded-2xl overflow-hidden min-h-[300px]">
+              <video ref={videoRef} autoPlay playsInline muted
+                className="w-full h-full object-cover" />
+              <div className="absolute inset-4 border-2 border-dashed border-white/30 rounded-xl pointer-events-none" />
+              <div className="absolute top-3 left-3 bg-black/60 text-white text-xs px-2.5 py-1 rounded-full flex items-center gap-1.5">
+                <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
+                Câmera ativa
+              </div>
+            </div>
+            <button onClick={capturePhoto}
+              className="w-full py-4 bg-blue-600 text-white rounded-2xl font-semibold text-sm hover:bg-blue-700 active:scale-[0.98] transition-all flex items-center justify-center gap-2">
+              <Camera size={20} /> Capturar
+            </button>
+          </div>
+        )}
+
+        {/* ═══ STEP: PREVIEW ═══ */}
+        {step === 'preview' && file && (
+          <div className="flex-1 flex flex-col gap-4">
+            <h3 className="font-semibold text-slate-800 text-sm">Preview do documento</h3>
+
+            {/* Preview area */}
+            <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
+              {previewUrl && file.type.startsWith('image/') ? (
+                <img src={previewUrl} alt="Preview" className="w-full max-h-[45vh] object-contain bg-slate-100" />
+              ) : (
+                <div className="flex items-center gap-4 p-6">
+                  <div className="p-4 bg-slate-100 rounded-xl">
+                    <FileIcon type={file.type} size={32} />
+                  </div>
+                  <div>
+                    <p className="font-medium text-slate-800 text-sm break-all">{file.name}</p>
+                    <p className="text-xs text-slate-500 mt-1">{fmtSize(file.size)}</p>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Ações */}
+            <div className="flex gap-3">
+              <button onClick={retakeOrReselect}
+                className="flex-1 py-3 bg-white border border-slate-200 text-slate-700 rounded-xl font-medium text-sm hover:bg-slate-50 active:scale-[0.98] transition-all flex items-center justify-center gap-2">
+                <RotateCcw size={16} />
+                {origemCaptura === 'camera' ? 'Capturar Nova' : 'Trocar Arquivo'}
+              </button>
+              <button onClick={goToForm}
+                className="flex-1 py-3 bg-blue-600 text-white rounded-xl font-medium text-sm hover:bg-blue-700 active:scale-[0.98] transition-all flex items-center justify-center gap-2">
+                <Check size={16} /> Utilizar {origemCaptura === 'camera' ? 'Imagem' : 'Arquivo'}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* ═══ STEP: FORM ═══ */}
+        {step === 'form' && file && (
+          <div className="flex-1 flex flex-col gap-4">
+            {/* File summary */}
+            <div className="flex items-center gap-3 bg-white border border-slate-200 rounded-xl p-3">
+              <div className="w-10 h-10 bg-slate-100 rounded-lg flex items-center justify-center overflow-hidden shrink-0">
+                {previewUrl && file.type.startsWith('image/') ? (
+                  <img src={previewUrl} alt="" className="w-full h-full object-cover" />
+                ) : (
+                  <FileIcon type={file.type} size={20} />
+                )}
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-slate-800 truncate">{file.name}</p>
+                <p className="text-xs text-slate-400">{fmtSize(file.size)}</p>
+              </div>
+              <button onClick={() => setStep('preview')} className="ml-auto text-xs text-blue-600 hover:underline shrink-0">
+                Trocar
+              </button>
+            </div>
+
+            {/* Formulário */}
+            <div className="space-y-4">
+              <div>
+                <label className="flex items-center gap-1.5 text-sm font-medium text-slate-700 mb-1.5">
+                  <AlignLeft size={14} className="text-slate-400" />
+                  Descrição do documento <span className="text-red-500">*</span>
+                </label>
+                <textarea
+                  value={descricao}
+                  onChange={e => setDescricao(e.target.value)}
+                  placeholder="Ex: Conta de luz — Março 2026"
+                  rows={3}
+                  className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none resize-none transition-all"
+                />
+              </div>
+
+              <div>
+                <label className="flex items-center gap-1.5 text-sm font-medium text-slate-700 mb-1.5">
+                  <Calendar size={14} className="text-slate-400" />
+                  Data de vencimento <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="date"
+                  value={dataVencimento}
+                  onChange={e => setDataVencimento(e.target.value)}
+                  className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                />
+              </div>
+            </div>
+
+            {/* Submit */}
+            <button onClick={handleSubmit}
+              disabled={!descricao.trim() || !dataVencimento}
+              className="w-full py-4 bg-blue-600 text-white rounded-2xl font-semibold text-sm hover:bg-blue-700 active:scale-[0.98] transition-all flex items-center justify-center gap-2
+                disabled:bg-slate-300 disabled:cursor-not-allowed disabled:active:scale-100 mt-auto">
+              <Send size={18} /> Enviar Documento
+            </button>
+          </div>
+        )}
+
+        {/* ═══ STEP: UPLOADING ═══ */}
+        {step === 'uploading' && (
+          <div className="flex-1 flex flex-col items-center justify-center gap-4">
+            <Loader2 className="w-10 h-10 animate-spin text-blue-500" />
+            <p className="text-sm text-slate-600 font-medium">{uploadProgress}</p>
+            <p className="text-xs text-slate-400">Não feche esta tela.</p>
+          </div>
+        )}
+
+        {/* ═══ STEP: SUCCESS ═══ */}
+        {step === 'success' && (
+          <div className="flex-1 flex flex-col items-center justify-center gap-4">
+            <div className="p-4 bg-green-100 rounded-full">
+              <CheckCircle2 size={40} className="text-green-600" />
+            </div>
+            <h3 className="text-lg font-bold text-slate-800">Documento Enviado!</h3>
+            <p className="text-sm text-slate-500 text-center">
+              O documento foi enviado para o Inbox do AMO Application com sucesso.
+            </p>
+            <button onClick={goHome}
+              className="w-full max-w-xs py-3.5 bg-blue-600 text-white rounded-xl font-semibold text-sm hover:bg-blue-700 active:scale-[0.98] transition-all flex items-center justify-center gap-2 mt-4">
+              <ScanLine size={18} /> Enviar outro documento
+            </button>
+          </div>
+        )}
+      </main>
+
+    </div>
+  )
+}

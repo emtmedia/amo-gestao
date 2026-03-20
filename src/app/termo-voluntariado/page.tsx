@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { FileText, Printer, RotateCcw, CheckCircle } from 'lucide-react'
+import DateInput from '@/components/ui/DateInput'
 
 interface Voluntario {
   id: string; nome: string; cpf: string
@@ -12,8 +13,10 @@ interface Evento  { id: string; nome: string; projetoVinculadoId?: string | null
 const fmtDate = (d: string) =>
   d ? new Date(d + 'T12:00:00').toLocaleDateString('pt-BR') : '___/___/______'
 
-const hoje = () => {
-  const d = new Date()
+const hojeISO = () => new Date().toISOString().slice(0, 10)
+
+const fmtDataExtenso = (iso: string) => {
+  const d = iso ? new Date(iso + 'T12:00:00') : new Date()
   return d.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })
 }
 
@@ -34,6 +37,7 @@ export default function TermoVoluntariadoPage() {
   const [volId,  setVolId]  = useState('')
   const [projId, setProjId] = useState('')
   const [evId,   setEvId]   = useState('')
+  const [dataDocumento, setDataDocumento] = useState(hojeISO)
   const [loading, setLoading] = useState(true)
   const [saving,  setSaving]  = useState(false)
   const [migrated, setMigrated] = useState(false)
@@ -82,7 +86,8 @@ export default function TermoVoluntariadoPage() {
   const projetoDisabled = !!evId
 
   const reset = () => {
-    setVolId(''); setProjId(''); setEvId(''); setNumeroEmitido(null)
+    setVolId(''); setProjId(''); setEvId('')
+    setDataDocumento(hojeISO()); setNumeroEmitido(null)
     refreshNumero()
   }
 
@@ -113,7 +118,7 @@ export default function TermoVoluntariadoPage() {
 
   const printTermo = (numero: string) => {
     if (!selectedVol) return
-    const html = buildHtml(selectedVol, selectedProj ?? null, selectedEv ?? null, numero)
+    const html = buildHtml(selectedVol, selectedProj ?? null, selectedEv ?? null, numero, dataDocumento)
     const win = window.open('', '_blank', 'width=960,height=1000')
     if (win) { win.document.write(html); win.document.close(); win.focus() }
   }
@@ -217,15 +222,11 @@ export default function TermoVoluntariadoPage() {
                 )}
               </div>
 
-              <div className="form-group">
-                <label>Data do Documento</label>
-                <input
-                  type="text"
-                  value={hoje()}
-                  readOnly
-                  className="form-input bg-navy-50 text-navy-500 cursor-not-allowed"
-                />
-              </div>
+              <DateInput
+                label="Data do Documento"
+                value={dataDocumento}
+                onChange={setDataDocumento}
+              />
             </div>
 
             {/* Preview resumo */}
@@ -255,7 +256,7 @@ export default function TermoVoluntariadoPage() {
                 color: '#222',
               }}
             >
-              <TermoContent vol={selectedVol ?? null} proj={selectedProj ?? null} ev={selectedEv ?? null} numero={numeroEmitido ?? proximoNumero} emitido={!!numeroEmitido} />
+              <TermoContent vol={selectedVol ?? null} proj={selectedProj ?? null} ev={selectedEv ?? null} numero={numeroEmitido ?? proximoNumero} emitido={!!numeroEmitido} dataDocumento={dataDocumento} />
             </div>
           </div>
         </div>
@@ -268,8 +269,8 @@ export default function TermoVoluntariadoPage() {
    Preview component (in-page)
 ────────────────────────────────────────────────────────── */
 function TermoContent({
-  vol, proj, ev, numero, emitido
-}: { vol: Voluntario | null; proj: Projeto | null; ev: Evento | null; numero: string; emitido: boolean }) {
+  vol, proj, ev, numero, emitido, dataDocumento
+}: { vol: Voluntario | null; proj: Projeto | null; ev: Evento | null; numero: string; emitido: boolean; dataDocumento: string }) {
   const ph = (v: string | undefined, fallback: string) =>
     v ? <strong style={{ borderBottom: '1px dotted #888' }}>{v}</strong>
        : <span style={{ color: '#bbb', borderBottom: '1px dotted #ccc' }}>{fallback}</span>
@@ -373,7 +374,7 @@ function TermoContent({
 
       {/* Data e assinatura */}
       <p style={{ ...s, marginTop: '32px', textAlign: 'center' }}>
-        {hoje()}.
+        {fmtDataExtenso(dataDocumento)}.
       </p>
 
       <div style={{ marginTop: '48px', display: 'flex', justifyContent: 'space-around', gap: '40px' }}>
@@ -404,7 +405,7 @@ function TermoContent({
 /* ──────────────────────────────────────────────────────────
    HTML para nova janela de impressão
 ────────────────────────────────────────────────────────── */
-function buildHtml(vol: Voluntario, proj: Projeto | null, ev: Evento | null, numero: string): string {
+function buildHtml(vol: Voluntario, proj: Projeto | null, ev: Evento | null, numero: string, dataDocumento: string): string {
   const art = pronome(vol.genero)
   const A   = art === 'a' ? 'A' : 'O'
   const V   = art === 'a' ? 'VOLUNTÁRIA' : 'VOLUNTÁRIO'
@@ -543,7 +544,7 @@ function buildHtml(vol: Voluntario, proj: Projeto | null, ev: Evento | null, num
         prévia com antecedência mínima de 07 (sete) dias.
       </p>
 
-      <p class="data-centro">${hoje()}.</p>
+      <p class="data-centro">${fmtDataExtenso(dataDocumento)}.</p>
 
       <div class="assinaturas">
         <div class="assinatura-bloco">

@@ -4,7 +4,7 @@ import Sidebar from '@/components/Sidebar'
 import { LogOut, User } from 'lucide-react'
 import { useState, useEffect } from 'react'
 
-const AUTH_PATHS = ['/login', '/verificar-otp', '/esqueci-senha', '/reset-senha']
+const AUTH_PATHS = ['/login', '/verificar-otp', '/esqueci-senha', '/reset-senha', '/scan']
 const REPORT_PATHS = ['/consolidacoes/projetos/relatorio', '/consolidacoes/eventos/relatorio']
 
 interface SessionUser {

@@ -1,0 +1,25 @@
+{
+  "name": "AMO Scan",
+  "short_name": "AMO Scan",
+  "description": "Escanear e enviar documentos para o Inbox AMO",
+  "start_url": "/scan",
+  "scope": "/scan",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0f172a",
+  "theme_color": "#0f172a",
+  "icons": [
+    {
+      "src": "/icons/scan-192.svg",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/scan-512.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ]
+}

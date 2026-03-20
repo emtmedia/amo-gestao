@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="192" height="192" viewBox="0 0 192 192">
+  <!-- Background -->
+  <rect width="192" height="192" rx="40" fill="#0f172a"/>
+  <!-- Scanner frame lines -->
+  <rect x="32" y="32" width="128" height="128" rx="12" fill="none" stroke="#3b82f6" stroke-width="4"/>
+  <!-- Corner accents -->
+  <path d="M32 60 L32 40 Q32 32 40 32 L60 32" stroke="#60a5fa" stroke-width="6" stroke-linecap="round" fill="none"/>
+  <path d="M132 32 L152 32 Q160 32 160 40 L160 60" stroke="#60a5fa" stroke-width="6" stroke-linecap="round" fill="none"/>
+  <path d="M160 132 L160 152 Q160 160 152 160 L132 160" stroke="#60a5fa" stroke-width="6" stroke-linecap="round" fill="none"/>
+  <path d="M60 160 L40 160 Q32 160 32 152 L32 132" stroke="#60a5fa" stroke-width="6" stroke-linecap="round" fill="none"/>
+  <!-- Scan line -->
+  <line x1="44" y1="96" x2="148" y2="96" stroke="#3b82f6" stroke-width="3" stroke-linecap="round" opacity="0.8"/>
+  <!-- Dove / document icon center -->
+  <text x="96" y="88" font-family="serif" font-size="36" text-anchor="middle" fill="white">🕊️</text>
+  <!-- AMO text -->
+  <text x="96" y="148" font-family="Arial, sans-serif" font-size="18" font-weight="bold" text-anchor="middle" fill="#93c5fd" letter-spacing="4">AMO</text>
+</svg>

@@ -24,6 +24,7 @@ const TABS = [
   { key: 'servicos-prestados',  label: 'Serviços Externos',         api: '/api/auxiliares/servicos-prestados' },
   { key: 'itens-copa',          label: 'Itens Copa/Cozinha',        api: '/api/auxiliares/itens-copa' },
   { key: 'tipos-item-aquisicao', label: 'Tipos de Aquisição',      api: '/api/auxiliares/tipos-item-aquisicao' },
+  { key: 'categorias-documentos', label: 'Categorias de Documentos', api: '/api/documentos-amo/categorias' },
 ]
 
 function AuxiliaresPageInner() {

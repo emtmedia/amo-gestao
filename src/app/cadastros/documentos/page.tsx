@@ -1,11 +1,12 @@
 'use client'
 import { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react'
-import { Plus, Upload, Search, FileText, File, Image, FileArchive, FileSpreadsheet, Download, Eye, Pencil, Trash2, Tag, Lock, Unlock, RefreshCw, FolderOpen, X, Filter, LayoutGrid, List, ScanLine, ExternalLink } from 'lucide-react'
+import { Plus, Upload, Search, FileText, File, Image, FileArchive, FileSpreadsheet, Download, Eye, Pencil, Trash2, Tag, Lock, Unlock, RefreshCw, FolderOpen, X, Filter, LayoutGrid, List, ScanLine, ExternalLink, Inbox } from 'lucide-react'
 import Modal from '@/components/ui/Modal'
 import DateInput from '@/components/ui/DateInput'
 import { usePreferences } from '@/lib/preferences'
 
 const ScannerCapture = lazy(() => import('@/components/ui/ScannerCapture'))
+const InboxPickerModal = lazy(() => import('@/components/ui/InboxPickerModal'))
 
 interface Cat { id: string; nome: string; cor: string; icone: string }
 interface Doc {
@@ -94,6 +95,7 @@ export default function Page() {
   const [uploadedSize, setUploadedSize] = useState(0)
   const fileRef = useRef<HTMLInputElement>(null)
   const [scannerOpen, setScannerOpen] = useState(false)
+  const [inboxOpen, setInboxOpen] = useState(false)
   // Filters
   const [search, setSearch] = useState('')
   const [filterCat, setFilterCat] = useState('')
@@ -159,6 +161,15 @@ export default function Page() {
       } else { showToast(j.error || 'Erro ao enviar arquivo', 'error') }
     } catch { showToast('Erro ao enviar arquivo', 'error') }
     finally { setUploading(false) }
+  }
+
+  const handleInboxSelect = (doc: { name: string; type: string; size: number; url: string; path?: string }) => {
+    setUploadedUrl(doc.url)
+    setUploadedPath(doc.path || '')
+    setUploadedName(doc.name)
+    setUploadedType(doc.type)
+    setUploadedSize(doc.size)
+    showToast('Documento obtido do Inbox com sucesso!')
   }
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -528,6 +539,16 @@ export default function Page() {
               </div>
               <button
                 type="button"
+                onClick={() => setInboxOpen(true)}
+                disabled={uploading}
+                className="flex flex-col items-center justify-center gap-1.5 px-4 border-2 border-dashed border-green-300 rounded-xl bg-green-50 hover:bg-green-100 hover:border-green-400 transition-colors text-green-600 disabled:opacity-40 disabled:cursor-not-allowed min-w-[100px]"
+                title="Selecionar documento do Inbox"
+              >
+                <Inbox className="w-5 h-5" />
+                <span className="text-xs font-medium leading-tight text-center">Obter do<br/>Inbox</span>
+              </button>
+              <button
+                type="button"
                 onClick={() => setScannerOpen(true)}
                 disabled={uploading}
                 className="flex flex-col items-center justify-center gap-1.5 px-4 border-2 border-dashed border-blue-300 rounded-xl bg-blue-50 hover:bg-blue-100 hover:border-blue-400 transition-colors text-blue-600 disabled:opacity-40 disabled:cursor-not-allowed min-w-[100px]"
@@ -540,6 +561,11 @@ export default function Page() {
             {scannerOpen && (
               <Suspense fallback={null}>
                 <ScannerCapture open={scannerOpen} onClose={() => setScannerOpen(false)} onCapture={handleScanCapture} />
+              </Suspense>
+            )}
+            {inboxOpen && (
+              <Suspense fallback={null}>
+                <InboxPickerModal open={inboxOpen} onClose={() => setInboxOpen(false)} onSelect={handleInboxSelect} />
               </Suspense>
             )}
           </div>

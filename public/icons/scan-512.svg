@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <!-- Background -->
+  <rect width="512" height="512" rx="96" fill="#0f172a"/>
+  <!-- Scanner frame lines -->
+  <rect x="80" y="80" width="352" height="352" rx="28" fill="none" stroke="#3b82f6" stroke-width="10"/>
+  <!-- Corner accents -->
+  <path d="M80 160 L80 104 Q80 80 104 80 L160 80" stroke="#60a5fa" stroke-width="16" stroke-linecap="round" fill="none"/>
+  <path d="M352 80 L408 80 Q432 80 432 104 L432 160" stroke="#60a5fa" stroke-width="16" stroke-linecap="round" fill="none"/>
+  <path d="M432 352 L432 408 Q432 432 408 432 L352 432" stroke="#60a5fa" stroke-width="16" stroke-linecap="round" fill="none"/>
+  <path d="M160 432 L104 432 Q80 432 80 408 L80 352" stroke="#60a5fa" stroke-width="16" stroke-linecap="round" fill="none"/>
+  <!-- Scan line -->
+  <line x1="112" y1="256" x2="400" y2="256" stroke="#3b82f6" stroke-width="8" stroke-linecap="round" opacity="0.8"/>
+  <!-- Dove icon center -->
+  <text x="256" y="240" font-family="serif" font-size="96" text-anchor="middle" fill="white">🕊️</text>
+  <!-- AMO text -->
+  <text x="256" y="390" font-family="Arial, sans-serif" font-size="52" font-weight="bold" text-anchor="middle" fill="#93c5fd" letter-spacing="10">AMO</text>
+  <!-- SCAN subtext -->
+  <text x="256" y="440" font-family="Arial, sans-serif" font-size="28" text-anchor="middle" fill="#475569" letter-spacing="6">SCAN</text>
+</svg>

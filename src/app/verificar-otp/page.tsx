@@ -79,10 +79,12 @@ export default function VerificarOTPPage() {
         submittingRef.current = false
         return
       }
+      const redirectTo = sessionStorage.getItem('otp_redirect') || '/'
       sessionStorage.removeItem('otp_usuarioId')
       sessionStorage.removeItem('otp_email')
+      sessionStorage.removeItem('otp_redirect')
       setSuccess('Verificado com sucesso! Redirecionando...')
-      setTimeout(() => { window.location.href = '/' }, 800)
+      setTimeout(() => { window.location.href = redirectTo }, 800)
     } catch {
       setError('Erro de conexão. Tente novamente.')
       submittingRef.current = false
