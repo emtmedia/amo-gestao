@@ -112,9 +112,9 @@ export default function InboxPickerModal({ open, onClose, onSelect }: InboxPicke
       className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/60 backdrop-blur-sm"
       onClick={e => { if (e.target === e.currentTarget) onClose() }}
     >
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl mx-4 flex flex-col max-h-[80vh]">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl mx-4 flex flex-col" style={{ maxHeight: '80vh' }}>
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200">
+        <div className="flex-none flex items-center justify-between px-5 py-4 border-b border-gray-200">
           <div className="flex items-center gap-2">
             <Inbox size={20} className="text-blue-600" />
             <h3 className="font-semibold text-gray-800">Obter do Inbox</h3>
@@ -125,7 +125,7 @@ export default function InboxPickerModal({ open, onClose, onSelect }: InboxPicke
         </div>
 
         {/* Search */}
-        <div className="px-5 py-3 border-b border-gray-100">
+        <div className="flex-none px-5 py-3 border-b border-gray-100">
           <div className="relative">
             <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
             <input
@@ -139,15 +139,15 @@ export default function InboxPickerModal({ open, onClose, onSelect }: InboxPicke
         </div>
 
         {/* Info banner */}
-        <div className="px-5 py-2 bg-amber-50 border-b border-amber-100">
+        <div className="flex-none px-5 py-2 bg-amber-50 border-b border-amber-100">
           <p className="text-xs text-amber-700 flex items-center gap-1.5">
             <AlertCircle size={13} className="shrink-0" />
             Ao selecionar, o documento será marcado como <strong>Processado</strong> no Inbox.
           </p>
         </div>
 
-        {/* Content */}
-        <div className="flex-1 min-h-0 overflow-y-auto p-5">
+        {/* Content — overflow controlado via overflow-y-auto + flex-1 min-h-0 */}
+        <div className="overflow-y-auto p-5" style={{ flex: '1 1 0', minHeight: 0 }}>
           {error && (
             <div className="flex items-center gap-2 text-red-600 text-sm bg-red-50 rounded-lg p-3 mb-4">
               <AlertCircle size={16} className="shrink-0" />
