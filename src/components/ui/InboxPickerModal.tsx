@@ -147,7 +147,7 @@ export default function InboxPickerModal({ open, onClose, onSelect }: InboxPicke
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto p-5">
+        <div className="flex-1 min-h-0 overflow-y-auto p-5">
           {error && (
             <div className="flex items-center gap-2 text-red-600 text-sm bg-red-50 rounded-lg p-3 mb-4">
               <AlertCircle size={16} className="shrink-0" />
