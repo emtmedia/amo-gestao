@@ -1,7 +1,7 @@
 import prisma from '@/lib/prisma'
 import { getSession } from '@/lib/session'
 
-export type AuditAction = 'CRIAR' | 'EDITAR' | 'EXCLUIR' | 'CONFIGURAÇÃO' | 'LOGIN' | 'LOGOUT'
+export type AuditAction = 'CRIAR' | 'EDITAR' | 'EXCLUIR' | 'ARQUIVAR' | 'CONFIGURAÇÃO' | 'LOGIN' | 'LOGOUT'
 
 export async function logAudit(
   action: AuditAction,

@@ -989,7 +989,7 @@ export default function ChequeReciboPage() {
             </div>
             )
           })
-        )}
+        })()}
       </div>
 
       {/* Create / Edit Modal */}
