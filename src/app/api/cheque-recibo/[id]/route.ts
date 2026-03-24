@@ -39,7 +39,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
     const projetoId         = body.projetoId     || null
     const eventoId          = body.eventoId      || null
 
-    console.log('[CR PUT] id:', params.id, '| projetoId:', projetoId, '| eventoId:', eventoId)
+    console.log(`CRPUT_EVENTO=${eventoId}_PROJETO=${projetoId}`)
 
     await prisma.$executeRaw`
       UPDATE "ChequeRecibo" SET
