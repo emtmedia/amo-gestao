@@ -1106,7 +1106,10 @@ export default function ChequeReciboPage() {
                 className="form-input"
                 disabled={!eventoAvulso && !form.projetoId && eventos.length > 0}
               >
-                <option value="">Sem evento</option>
+                {/* "Sem evento" só aparece quando Administração Geral está selecionado */}
+                {!form.projetoId && !eventoAvulso && (
+                  <option value="">Sem evento</option>
+                )}
                 {eventosFiltrados.map(e => (
                   <option key={e.id} value={e.id}>{e.nome}</option>
                 ))}
