@@ -104,7 +104,7 @@ function printRelatorio(
     <tr>
       <td>${i + 1}</td>
       <td>${a.descricao}</td>
-      <td>${a.nomeArquivo}</td>
+      <td><a href="${a.urlArquivo}" target="_blank" rel="noopener noreferrer" style="color:#1e3a8a;text-decoration:underline;font-weight:600">${a.nomeArquivo}</a></td>
       <td style="text-align:right">${new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(Number(a.valorDocumento))}</td>
       <td>${new Date(a.createdAt).toLocaleDateString('pt-BR')}</td>
       <td>${a.enviadoPorNome}</td>
