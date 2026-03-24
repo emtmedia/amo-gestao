@@ -1106,8 +1106,12 @@ export default function ChequeReciboPage() {
                 className="form-input"
                 disabled={!eventoAvulso && !form.projetoId && eventos.length > 0}
               >
-                {/* "Sem evento" só aparece quando Administração Geral está selecionado */}
-                {!form.projetoId && !eventoAvulso && (
+                {/*
+                  "Sem evento" aparece APENAS quando:
+                  - Administração Geral (sem projeto) e sem checkbox avulso, OU
+                  - Lista filtrada está vazia (fallback para qualquer caso sem eventos)
+                */}
+                {((!form.projetoId && !eventoAvulso) || eventosFiltrados.length === 0) && (
                   <option value="">Sem evento</option>
                 )}
                 {eventosFiltrados.map(e => (
