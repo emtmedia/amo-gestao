@@ -1071,7 +1071,12 @@ export default function ChequeReciboPage() {
               <select
                 value={form.projetoId}
                 onChange={e => {
-                  setForm(p => ({ ...p, projetoId: e.target.value, eventoId: '' }))
+                  const newProjetoId = e.target.value
+                  const filtrados = newProjetoId
+                    ? eventos.filter(ev => ev.projetoVinculadoId === newProjetoId)
+                    : []
+                  const autoEvento = filtrados.length === 1 ? filtrados[0].id : ''
+                  setForm(p => ({ ...p, projetoId: newProjetoId, eventoId: autoEvento }))
                   setEventoAvulso(false)
                 }}
                 className="form-input"
@@ -1115,6 +1120,9 @@ export default function ChequeReciboPage() {
                 */}
                 {((!form.projetoId && !eventoAvulso) || eventosFiltrados.length === 0) && (
                   <option value="">Sem evento</option>
+                )}
+                {(form.projetoId || eventoAvulso) && eventosFiltrados.length > 1 && (
+                  <option value="" disabled>— Selecione o evento —</option>
                 )}
                 {eventosFiltrados.map(e => (
                   <option key={e.id} value={e.id}>{e.nome}</option>
