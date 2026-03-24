@@ -830,7 +830,7 @@ export default function ChequeReciboPage() {
             const anexosExpanded = expandedAnexos[cr.id]
 
             return (
-            <div key={cr.id} className={`card hover:shadow-md transition-shadow ${cr.arquivado ? 'bg-emerald-50 border-emerald-200' : 'bg-blue-50 border-blue-200'}`}>
+            <div key={cr.id} className={`card hover:shadow-md transition-shadow ${cr.arquivado ? 'bg-emerald-50 border-emerald-200' : 'bg-[hsl(214,50%,97%)] border-[hsl(213,49%,87%)]'}`}>
               <div className="flex items-start justify-between gap-4">
                 {/* Left: info */}
                 <div className="flex-1 min-w-0">
