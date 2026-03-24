@@ -4,11 +4,24 @@ import { logAudit } from '@/lib/audit'
 
 export const dynamic = 'force-dynamic'
 
+type CRRow = {
+  id: string; numero: string; sequencia: number; nomeOperador: string;
+  dataTransferencia: Date; valorConcedido: number; metodoTransferencia: string;
+  nomeRecebedor: string; cpfRecebedor: string; dataAcertoNotas: Date;
+  observacoes: string | null; projetoId: string | null; eventoId: string | null;
+  createdAt: Date; updatedAt: Date;
+}
+
 export async function GET(_: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const item = await prisma.chequeRecibo.findUnique({ where: { id: params.id } })
-    if (!item) return NextResponse.json({ success: false, error: 'Não encontrado' }, { status: 404 })
-    return NextResponse.json({ success: true, data: item })
+    const rows = await prisma.$queryRaw<CRRow[]>`
+      SELECT id, numero, sequencia, "nomeOperador", "dataTransferencia", "valorConcedido",
+             "metodoTransferencia", "nomeRecebedor", "cpfRecebedor", "dataAcertoNotas",
+             observacoes, "projetoId", "eventoId", "createdAt", "updatedAt"
+      FROM "ChequeRecibo" WHERE id = ${params.id}
+    `
+    if (!rows.length) return NextResponse.json({ success: false, error: 'Não encontrado' }, { status: 404 })
+    return NextResponse.json({ success: true, data: rows[0] })
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error)
     return NextResponse.json({ success: false, error: msg }, { status: 500 })
@@ -18,27 +31,32 @@ export async function GET(_: NextRequest, { params }: { params: { id: string } }
 export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
   try {
     const body = await request.json()
-    delete body.id; delete body.createdAt; delete body.updatedAt
-    delete body.numero; delete body.sequencia
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const item = await (prisma.chequeRecibo.update as any)({
-      where: { id: params.id },
-      data: {
-        nomeOperador: body.nomeOperador,
-        dataTransferencia: new Date(body.dataTransferencia),
-        valorConcedido: parseFloat(body.valorConcedido),
-        metodoTransferencia: body.metodoTransferencia || 'Espécie',
-        nomeRecebedor: body.nomeRecebedor,
-        cpfRecebedor: body.cpfRecebedor,
-        dataAcertoNotas: new Date(body.dataAcertoNotas),
-        observacoes: body.observacoes || null,
-        projetoId: body.projetoId || null,
-        eventoId: body.eventoId || null,
-      },
-    })
+    const dataTransferencia = new Date(body.dataTransferencia)
+    const valorConcedido    = parseFloat(body.valorConcedido)
+    const dataAcertoNotas   = new Date(body.dataAcertoNotas)
+    const observacoes       = body.observacoes   || null
+    const projetoId         = body.projetoId     || null
+    const eventoId          = body.eventoId      || null
+
+    await prisma.$executeRaw`
+      UPDATE "ChequeRecibo" SET
+        "nomeOperador"        = ${body.nomeOperador},
+        "dataTransferencia"   = ${dataTransferencia},
+        "valorConcedido"      = ${valorConcedido},
+        "metodoTransferencia" = ${body.metodoTransferencia || 'Espécie'},
+        "nomeRecebedor"       = ${body.nomeRecebedor},
+        "cpfRecebedor"        = ${body.cpfRecebedor},
+        "dataAcertoNotas"     = ${dataAcertoNotas},
+        "observacoes"         = ${observacoes},
+        "projetoId"           = ${projetoId},
+        "eventoId"            = ${eventoId},
+        "updatedAt"           = NOW()
+      WHERE id = ${params.id}
+    `
+
     await logAudit('EDITAR', 'ChequeRecibo', params.id)
-    return NextResponse.json({ success: true, data: item })
+    return NextResponse.json({ success: true })
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error)
     return NextResponse.json({ success: false, error: msg }, { status: 500 })

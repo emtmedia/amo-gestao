@@ -12,8 +12,20 @@ function formatNumero(seq: number) {
 // GET — list all records + next sequence number (preview) + anexos summary
 export async function GET() {
   try {
+    type CRRow = {
+      id: string; numero: string; sequencia: number; nomeOperador: string;
+      dataTransferencia: Date; valorConcedido: number; metodoTransferencia: string;
+      nomeRecebedor: string; cpfRecebedor: string; dataAcertoNotas: Date;
+      observacoes: string | null; projetoId: string | null; eventoId: string | null;
+      createdAt: Date; updatedAt: Date;
+    }
     const [items, rows] = await Promise.all([
-      prisma.chequeRecibo.findMany({ orderBy: { sequencia: 'desc' } }),
+      prisma.$queryRaw<CRRow[]>`
+        SELECT id, numero, sequencia, "nomeOperador", "dataTransferencia", "valorConcedido",
+               "metodoTransferencia", "nomeRecebedor", "cpfRecebedor", "dataAcertoNotas",
+               observacoes, "projetoId", "eventoId", "createdAt", "updatedAt"
+        FROM "ChequeRecibo" ORDER BY sequencia DESC
+      `,
       prisma.$queryRaw<{ ultimo: number }[]>`
         SELECT "ultimo" FROM "ChequeReciboContador" WHERE "id" = 1
       `,
