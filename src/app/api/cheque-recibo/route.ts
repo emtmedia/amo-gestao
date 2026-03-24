@@ -45,10 +45,37 @@ export async function GET() {
       anexosMap[a.chequeReciboId].push(a)
     }
 
+    // Busca nomes de projetos e eventos referenciados nos CRs
+    type NomeRow = { id: string; nome: string }
+    const projetoIds = [...new Set(items.map(c => c.projetoId).filter(Boolean))] as string[]
+    const eventoIds  = [...new Set(items.map(c => c.eventoId).filter(Boolean))] as string[]
+
+    let projetosMap: Record<string, string> = {}
+    let eventosMap:  Record<string, string> = {}
+
+    if (projetoIds.length > 0) {
+      try {
+        const rows = await prisma.$queryRaw<NomeRow[]>`
+          SELECT id, nome FROM "ProjetoFilantropia" WHERE id = ANY(${projetoIds})
+        `
+        for (const r of rows) projetosMap[r.id] = r.nome
+      } catch { /* tabela pode ter nome diferente */ }
+    }
+    if (eventoIds.length > 0) {
+      try {
+        const rows = await prisma.$queryRaw<NomeRow[]>`
+          SELECT id, nome FROM "Evento" WHERE id = ANY(${eventoIds})
+        `
+        for (const r of rows) eventosMap[r.id] = r.nome
+      } catch { /* ok */ }
+    }
+
     const data = items.map(cr => {
       const anexos = anexosMap[cr.id] ?? []
       const totalDocumentos = anexos.reduce((s, a) => s + Number(a.valorDocumento), 0)
-      return { ...cr, anexos, totalDocumentos }
+      const projetoNome = cr.projetoId ? (projetosMap[cr.projetoId] ?? null) : null
+      const eventoNome  = cr.eventoId  ? (eventosMap[cr.eventoId]  ?? null) : null
+      return { ...cr, anexos, totalDocumentos, projetoNome, eventoNome }
     })
 
     return NextResponse.json({

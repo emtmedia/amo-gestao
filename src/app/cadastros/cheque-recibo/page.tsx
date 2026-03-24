@@ -33,6 +33,8 @@ interface ChequeRecibo {
   observacoes?: string | null
   projetoId?: string | null
   eventoId?: string | null
+  projetoNome?: string | null
+  eventoNome?: string | null
   createdAt: string
   anexos: ChequeReciboAnexo[]
   totalDocumentos: number
@@ -841,16 +843,16 @@ export default function ChequeReciboPage() {
                         <span className="text-navy-600 text-xs">{cr.observacoes}</span>
                       </div>
                     )}
-                    {cr.projetoId && projetos.find(p => p.id === cr.projetoId) && (
+                    {cr.projetoNome && (
                       <div>
                         <span className="text-navy-400 text-xs font-medium block">Projeto</span>
-                        <span className="text-navy-800 text-xs font-medium">{projetos.find(p => p.id === cr.projetoId)?.nome}</span>
+                        <span className="text-navy-800 text-xs font-medium">{cr.projetoNome}</span>
                       </div>
                     )}
-                    {cr.eventoId && eventos.find(e => e.id === cr.eventoId) && (
+                    {cr.eventoNome && (
                       <div>
                         <span className="text-navy-400 text-xs font-medium block">Evento</span>
-                        <span className="text-navy-800 text-xs font-medium">{eventos.find(e => e.id === cr.eventoId)?.nome}</span>
+                        <span className="text-navy-800 text-xs font-medium">{cr.eventoNome}</span>
                       </div>
                     )}
                   </div>
@@ -859,7 +861,7 @@ export default function ChequeReciboPage() {
                 {/* Right: actions */}
                 <div className="flex flex-col gap-2 shrink-0">
                   <button
-                    onClick={() => printRelatorio(cr, projetos.find(p => p.id === cr.projetoId)?.nome ?? null, eventos.find(e => e.id === cr.eventoId)?.nome ?? null)}
+                    onClick={() => printRelatorio(cr, cr.projetoNome ?? null, cr.eventoNome ?? null)}
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-700 text-sm font-medium transition-colors"
                     title="Gerar Relatório do CR"
                   >
