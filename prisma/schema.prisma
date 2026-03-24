@@ -964,6 +964,30 @@ model TermoVoluntariado {
 }
 
 // ============================================
+// 68. CHEQUE-RECIBO (Saída de Valor em Espécie)
+// ============================================
+model ChequeReciboContador {
+  id     Int @id @default(1)
+  ultimo Int @default(0)
+}
+
+model ChequeRecibo {
+  id                  String   @id @default(cuid())
+  numero              String   @unique        // "CR-001/2026"
+  sequencia           Int
+  nomeOperador        String
+  dataTransferencia   DateTime
+  valorConcedido      Float
+  metodoTransferencia String   @default("Espécie")
+  nomeRecebedor       String
+  cpfRecebedor        String
+  dataAcertoNotas     DateTime
+  observacoes         String?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+}
+
+// ============================================
 // INBOX DE DOCUMENTOS
 // ============================================
 model InboxDocumento {

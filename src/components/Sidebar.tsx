@@ -8,7 +8,7 @@ import {
   TrendingUp, TrendingDown, Handshake, FileText,
   ChevronDown, ChevronRight, Menu, X, Settings,
   MapPin, CreditCard, Briefcase, BookOpen, Package,
-  Wrench, Utensils, PieChart, Sparkles, Receipt, ClipboardList, Lock, Inbox
+  Wrench, Utensils, PieChart, Sparkles, Receipt, ClipboardList, Lock, Inbox, Banknote
 } from 'lucide-react'
 import { usePreferences } from '@/lib/preferences'
 
@@ -40,6 +40,7 @@ const navItems: NavItem[] = [
     label: 'Despesas', icon: TrendingDown,
     children: [
       { label: 'Aquisições', icon: Package, href: '/cadastros/aquisicoes' },
+      { label: 'Cheque-Recibo', icon: Banknote, href: '/cadastros/cheque-recibo' },
       { label: 'Conservação/Zeladoria', icon: Wrench, href: '/cadastros/despesas/conservacao' },
       { label: 'Contas de Consumo', icon: TrendingDown, href: '/cadastros/despesas/consumo' },
       { label: 'Copa e Cozinha', icon: Utensils, href: '/cadastros/despesas/copa-cozinha' },
