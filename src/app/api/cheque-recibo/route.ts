@@ -61,7 +61,6 @@ export async function GET() {
     type NomeRow = { id: string; nome: string }
     const projetoIds = [...new Set(items.map(c => c.projetoId).filter(Boolean))] as string[]
     const eventoIds  = [...new Set(items.map(c => c.eventoId).filter(Boolean))] as string[]
-    console.log(`CRGET_EVIDS=${JSON.stringify(eventoIds)}_PRIDS=${JSON.stringify(projetoIds)}`)
 
     let projetosMap: Record<string, string> = {}
     let eventosMap:  Record<string, string> = {}
