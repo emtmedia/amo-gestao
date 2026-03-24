@@ -2,6 +2,7 @@
 'use client'
 
 import { useState, useRef, useEffect, useCallback } from 'react'
+import { parseCurrencyBR } from '@/components/ui/CurrencyInput'
 import {
   Camera, Upload, X, RotateCcw, Check, Send, Loader2, AlertCircle,
   FileText, Image, FileSpreadsheet, File, ChevronLeft, LogOut,
@@ -67,10 +68,32 @@ export default function ScanPage() {
   const [valorDocumento, setValorDocumento] = useState('')
   const [successInfo, setSuccessInfo]   = useState<{ destino: Destino; crNumero?: string } | null>(null)
 
-  const videoRef     = useRef<HTMLVideoElement>(null)
-  const streamRef    = useRef<MediaStream | null>(null)
-  const fileInputRef = useRef<HTMLInputElement>(null)
-  const cameraInputRef = useRef<HTMLInputElement>(null)
+  const videoRef        = useRef<HTMLVideoElement>(null)
+  const streamRef       = useRef<MediaStream | null>(null)
+  const fileInputRef    = useRef<HTMLInputElement>(null)
+  const cameraInputRef  = useRef<HTMLInputElement>(null)
+  const valorInputRef   = useRef<HTMLInputElement>(null)
+
+  function centsToDisplay(cents: number): string {
+    if (cents === 0) return ''
+    return (cents / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  }
+  function digitsOnly(str: string): number {
+    const d = str.replace(/\D/g, '')
+    return d ? parseInt(d.slice(-15), 10) : 0
+  }
+  function handleValorInput(e: React.FormEvent<HTMLInputElement>) {
+    const cents = digitsOnly(e.currentTarget.value)
+    const formatted = centsToDisplay(cents)
+    e.currentTarget.value = formatted
+    setValorDocumento(formatted)
+    requestAnimationFrame(() => {
+      if (valorInputRef.current) {
+        const len = valorInputRef.current.value.length
+        valorInputRef.current.setSelectionRange(len, len)
+      }
+    })
+  }
 
   useEffect(() => { setIsIOS(isIOSDevice()) }, [])
 
@@ -283,7 +306,7 @@ export default function ScanPage() {
     if (destino === 'cheque-recibo') {
       if (!selectedCR)         { setError('Selecione um Cheque-Recibo.'); return }
       if (!valorDocumento)     { setError('Informe o valor do documento.'); return }
-      const v = parseFloat(valorDocumento.replace(',', '.'))
+      const v = parseCurrencyBR(valorDocumento)
       if (isNaN(v) || v < 0)  { setError('Valor inválido.'); return }
     }
 
@@ -310,7 +333,7 @@ export default function ScanPage() {
         }
       } else {
         setUploadProgress('Vinculando ao Cheque-Recibo...')
-        fd.append('valorDocumento', valorDocumento.replace(',', '.'))
+        fd.append('valorDocumento', String(parseCurrencyBR(valorDocumento)))
         const res = await fetch(`/api/cheque-recibo/${selectedCR}/anexos`, { method: 'POST', body: fd })
         const data = await res.json()
         if (data.success) {
@@ -599,14 +622,32 @@ export default function ScanPage() {
                       <DollarSign size={14} className="text-slate-400" />
                       Valor do documento (R$) <span className="text-red-500">*</span>
                     </label>
-                    <input
-                      type="text"
-                      inputMode="decimal"
-                      value={valorDocumento}
-                      onChange={e => setValorDocumento(e.target.value.replace(/[^0-9,.\s]/g, ''))}
-                      placeholder="0,00"
-                      className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-pink-500 focus:border-pink-500 outline-none transition-all"
-                    />
+                    <div className="relative">
+                      <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm font-medium pointer-events-none select-none">R$</span>
+                      <input
+                        ref={valorInputRef}
+                        type="text"
+                        inputMode="numeric"
+                        defaultValue={valorDocumento}
+                        onInput={handleValorInput}
+                        onKeyDown={e => {
+                          const allowed = ['Backspace','Delete','Tab','Escape','Enter','ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Home','End']
+                          if (allowed.includes(e.key)) return
+                          if ((e.ctrlKey || e.metaKey) && ['a','c','v','x','z'].includes(e.key.toLowerCase())) return
+                          if (!/[\d,.]/.test(e.key)) e.preventDefault()
+                        }}
+                        onPaste={e => {
+                          e.preventDefault()
+                          const pasted = e.clipboardData.getData('text')
+                          const cents = digitsOnly(pasted) || Math.round(parseCurrencyBR(pasted) * 100)
+                          const formatted = centsToDisplay(cents)
+                          if (valorInputRef.current) valorInputRef.current.value = formatted
+                          setValorDocumento(formatted)
+                        }}
+                        placeholder="0,00"
+                        className="w-full pl-10 pr-3.5 py-2.5 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-pink-500 focus:border-pink-500 outline-none transition-all"
+                      />
+                    </div>
                   </div>
                 </>
               )}
