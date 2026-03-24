@@ -75,7 +75,8 @@ export async function POST(request: NextRequest) {
     const seq = countRows[0].ultimo
     const numero = formatNumero(seq)
 
-    const item = await prisma.chequeRecibo.create({
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const item = await (prisma.chequeRecibo.create as any)({
       data: {
         numero,
         sequencia: seq,
@@ -87,6 +88,8 @@ export async function POST(request: NextRequest) {
         cpfRecebedor: body.cpfRecebedor,
         dataAcertoNotas: new Date(body.dataAcertoNotas),
         observacoes: body.observacoes || null,
+        projetoId: body.projetoId || null,
+        eventoId: body.eventoId || null,
       },
     })
 

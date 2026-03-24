@@ -21,7 +21,8 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
     delete body.id; delete body.createdAt; delete body.updatedAt
     delete body.numero; delete body.sequencia
 
-    const item = await prisma.chequeRecibo.update({
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const item = await (prisma.chequeRecibo.update as any)({
       where: { id: params.id },
       data: {
         nomeOperador: body.nomeOperador,
@@ -32,6 +33,8 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
         cpfRecebedor: body.cpfRecebedor,
         dataAcertoNotas: new Date(body.dataAcertoNotas),
         observacoes: body.observacoes || null,
+        projetoId: body.projetoId || null,
+        eventoId: body.eventoId || null,
       },
     })
     await logAudit('EDITAR', 'ChequeRecibo', params.id)

@@ -31,6 +31,9 @@ export async function POST() {
         "updatedAt" TIMESTAMP NOT NULL DEFAULT NOW()
       )
     `)
+    // Colunas adicionadas posteriormente (idempotente)
+    await prisma.$executeRawUnsafe(`ALTER TABLE "ChequeRecibo" ADD COLUMN IF NOT EXISTS "projetoId" TEXT`)
+    await prisma.$executeRawUnsafe(`ALTER TABLE "ChequeRecibo" ADD COLUMN IF NOT EXISTS "eventoId" TEXT`)
     return NextResponse.json({ success: true })
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error)

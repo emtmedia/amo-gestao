@@ -1,6 +1,6 @@
 'use client'
-import { useState, useEffect, useCallback } from 'react'
-import { Plus, Printer, Pencil, Trash2, Banknote, CalendarClock, Paperclip, ChevronDown, ChevronUp, ExternalLink, X, FileText, Image, File, FileSpreadsheet } from 'lucide-react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
+import { Plus, Printer, Pencil, Trash2, Banknote, CalendarClock, Paperclip, ChevronDown, ChevronUp, ExternalLink, X, FileText, Image, File, FileSpreadsheet, FolderOpen, FileDown } from 'lucide-react'
 import Modal from '@/components/ui/Modal'
 import CurrencyInput, { parseBRL } from '@/components/ui/CurrencyInput'
 import DateInput from '@/components/ui/DateInput'
@@ -31,10 +31,15 @@ interface ChequeRecibo {
   cpfRecebedor: string
   dataAcertoNotas: string
   observacoes?: string | null
+  projetoId?: string | null
+  eventoId?: string | null
   createdAt: string
   anexos: ChequeReciboAnexo[]
   totalDocumentos: number
 }
+
+interface ProjetoItem { id: string; nome: string }
+interface EventoItem { id: string; nome: string; projetoVinculadoId: string | null }
 
 function FileIconSmall({ type }: { type: string }) {
   if (type.startsWith('image/')) return <Image size={14} className="text-blue-500" />
@@ -61,6 +66,8 @@ const emptyForm = {
   cpfRecebedor: '',
   dataAcertoNotas: '',
   observacoes: '',
+  projetoId: '',
+  eventoId: '',
 }
 
 const maskCPF = (v: string) => {
@@ -82,6 +89,325 @@ const fmtMoneyInput = (v: string) => {
   const n = parseFloat(v.replace(/\./g, '').replace(',', '.'))
   if (isNaN(n)) return ''
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(n)
+}
+
+function printRelatorio(
+  cr: ChequeRecibo,
+  projetoNome: string | null,
+  eventoNome: string | null
+) {
+  const saldo = cr.valorConcedido - (cr.totalDocumentos ?? 0)
+  const saldoZero = Math.abs(saldo) < 0.005
+  const agora = new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })
+
+  const linhasAnexos = (cr.anexos ?? []).map((a, i) => `
+    <tr>
+      <td>${i + 1}</td>
+      <td>${a.descricao}</td>
+      <td>${a.nomeArquivo}</td>
+      <td style="text-align:right">${new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(Number(a.valorDocumento))}</td>
+      <td>${new Date(a.createdAt).toLocaleDateString('pt-BR')}</td>
+      <td>${a.enviadoPorNome}</td>
+    </tr>
+  `).join('')
+
+  const secaoVinculacao = (projetoNome || eventoNome) ? `
+    <div class="section">
+      <div class="section-title">◆ Vinculação — Projeto &amp; Evento</div>
+      <div class="field-grid">
+        ${projetoNome ? `<div class="field"><div class="field-label">Projeto</div><div class="field-value">${projetoNome}</div></div>` : ''}
+        ${eventoNome  ? `<div class="field"><div class="field-label">Evento</div><div class="field-value">${eventoNome}</div></div>` : ''}
+      </div>
+    </div>` : ''
+
+  const html = `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8"/>
+  <title>Relatório CR ${cr.numero}</title>
+  <style>
+    @page { size: A4 portrait; margin: 12mm 14mm; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Arial', sans-serif; font-size: 12px; color: #1a1a2e; background: #e8e8e8; }
+
+    /* ── Toolbar ── */
+    .toolbar {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+      background: #1a1a2e; color: white;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 11px 22px; font-size: 13px;
+    }
+    .toolbar-title { font-weight: 600; }
+    .btn-print { background: #c8a84b; color: #1a1a2e; border: none; border-radius: 6px; padding: 7px 18px; font-size: 13px; font-weight: 700; cursor: pointer; }
+    .btn-print:hover { background: #b8983b; }
+    .btn-close { background: transparent; color: #9ca3af; border: 1px solid #374151; border-radius: 6px; padding: 7px 14px; font-size: 13px; cursor: pointer; }
+    .btn-close:hover { color: white; border-color: #6b7280; }
+
+    .page-wrapper { padding: 68px 24px 24px; display: flex; justify-content: center; }
+
+    /* ── A4 Sheet ── */
+    .a4 { background: white; width: 210mm; min-height: 297mm; box-shadow: 0 4px 32px rgba(0,0,0,.2); }
+
+    /* ── Header ── */
+    .header-stripe-top { background: linear-gradient(90deg, #c8a84b 0%, #e8d080 50%, #c8a84b 100%); height: 5px; }
+    .header-main {
+      background: #1a1a2e; color: white;
+      padding: 20px 28px 18px; text-align: center;
+      border-bottom: 3px solid #c8a84b;
+    }
+    .header-divider { display: flex; align-items: center; justify-content: center; gap: 10px; margin: 6px 0; }
+    .header-divider-line { flex: 1; height: 1px; background: rgba(200,168,75,.4); }
+    .header-diamond { color: #c8a84b; font-size: 10px; }
+    .org-name { font-size: 21px; font-weight: 900; letter-spacing: 5px; color: white; }
+    .org-sub { font-size: 11px; letter-spacing: 4px; color: #c8a84b; margin-top: 3px; font-weight: 600; }
+    .report-label { font-size: 11px; letter-spacing: 3px; color: rgba(255,255,255,.6); margin-top: 14px; }
+    .report-title { font-size: 15px; font-weight: 800; letter-spacing: 2px; color: white; margin-top: 4px; }
+    .cr-badge {
+      display: inline-block; border: 2px solid #c8a84b; color: #c8a84b;
+      font-size: 18px; font-weight: 900; padding: 4px 18px; margin-top: 10px;
+      font-family: 'Courier New', monospace; letter-spacing: 2px;
+    }
+    .header-stripe-bottom { background: linear-gradient(90deg, #c8a84b 0%, #e8d080 50%, #c8a84b 100%); height: 3px; }
+    .gen-date { background: #f8f6ef; text-align: right; padding: 5px 20px; font-size: 10px; color: #6b7280; border-bottom: 1px solid #e5e7eb; }
+
+    /* ── Sections ── */
+    .section { padding: 14px 22px; border-bottom: 1px solid #f0ece0; }
+    .section:last-of-type { border-bottom: none; }
+    .section-title {
+      font-size: 9px; font-weight: 800; letter-spacing: 2px; text-transform: uppercase;
+      color: #1a1a2e; padding-left: 9px; margin-bottom: 10px;
+      border-left: 3px solid #c8a84b;
+    }
+    .field-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px 20px; }
+    .field-grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px 20px; }
+    .field-label { font-size: 9px; font-weight: 700; color: #9ca3af; text-transform: uppercase; letter-spacing: .5px; }
+    .field-value { font-size: 12px; font-weight: 600; color: #1e3a8a; margin-top: 2px; }
+    .field-value-big { font-size: 16px; font-weight: 800; color: #1a1a2e; margin-top: 2px; }
+
+    /* ── Attachments table ── */
+    .table-wrap { padding: 14px 22px; border-bottom: 1px solid #f0ece0; }
+    table { width: 100%; border-collapse: collapse; font-size: 11px; }
+    thead tr { background: #1a1a2e; color: white; }
+    thead th { padding: 8px 10px; text-align: left; font-size: 9px; letter-spacing: 1px; font-weight: 700; }
+    tbody tr { border-bottom: 1px solid #f5f5f5; }
+    tbody tr:nth-child(even) { background: #faf9f6; }
+    tbody td { padding: 7px 10px; color: #374151; }
+    tfoot tr { background: #f0ece0; font-weight: 700; }
+    tfoot td { padding: 8px 10px; }
+    .no-docs { padding: 14px 22px; color: #9ca3af; font-size: 11px; font-style: italic; }
+
+    /* ── Saldo box ── */
+    .saldo-section { padding: 14px 22px; background: #f8f6ef; border-top: 2px solid #c8a84b; }
+    .saldo-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+    .saldo-item { text-align: center; }
+    .saldo-label { font-size: 9px; font-weight: 700; color: #6b7280; text-transform: uppercase; letter-spacing: .5px; }
+    .saldo-value { font-size: 15px; font-weight: 800; margin-top: 3px; }
+    .saldo-ok { color: #16a34a; }
+    .saldo-pending { color: #d97706; }
+    .saldo-bar { height: 4px; border-radius: 2px; margin-top: 6px; background: #e5e7eb; overflow: hidden; }
+    .saldo-bar-fill { height: 100%; background: linear-gradient(90deg, #c8a84b, #e8d080); border-radius: 2px; }
+
+    /* ── Signatures ── */
+    .sign-section { padding: 18px 22px 14px; }
+    .sign-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; margin-top: 14px; }
+    .sign-box { text-align: center; }
+    .sign-line { border-bottom: 1px solid #374151; height: 40px; margin-bottom: 6px; }
+    .sign-name { font-size: 12px; font-weight: 700; color: #1a1a2e; }
+    .sign-role { font-size: 10px; color: #6b7280; margin-top: 2px; }
+
+    /* ── Footer ── */
+    .footer-stripe { background: linear-gradient(90deg, #c8a84b 0%, #e8d080 50%, #c8a84b 100%); height: 3px; }
+    .legal { padding: 10px 22px; font-size: 8.5px; color: #9ca3af; line-height: 1.6; text-align: justify; }
+
+    @media print {
+      body { background: white; }
+      .toolbar { display: none; }
+      .page-wrapper { padding: 0; }
+      .a4 { box-shadow: none; width: 100%; min-height: unset; }
+    }
+  </style>
+</head>
+<body>
+  <div class="toolbar">
+    <span class="toolbar-title">Relatório — Cheque-Recibo ${cr.numero} · ${cr.nomeRecebedor}</span>
+    <div style="display:flex;gap:10px">
+      <button class="btn-print" onclick="window.print()">🖨️ Imprimir / Salvar PDF</button>
+      <button class="btn-close" onclick="window.close()">Fechar</button>
+    </div>
+  </div>
+
+  <div class="page-wrapper">
+    <div class="a4">
+
+      <!-- Header -->
+      <div class="header-stripe-top"></div>
+      <div class="header-main">
+        <div class="header-divider">
+          <div class="header-divider-line"></div>
+          <div class="header-diamond">◆◆◆</div>
+          <div class="header-divider-line"></div>
+        </div>
+        <div class="org-name">ASSOCIAÇÃO MISSÃO ÔMEGA</div>
+        <div class="org-sub">TESOURARIA &nbsp;·&nbsp; FINANCEIRO</div>
+        <div class="header-divider" style="margin-top:12px">
+          <div class="header-divider-line"></div>
+          <div class="header-diamond">◆</div>
+          <div class="header-divider-line"></div>
+        </div>
+        <div class="report-label">RELATÓRIO DE CHEQUE-RECIBO</div>
+        <div class="report-title">Comprovante de Saída e Prestação de Contas</div>
+        <div class="cr-badge">${cr.numero}</div>
+      </div>
+      <div class="header-stripe-bottom"></div>
+      <div class="gen-date">Gerado em: ${agora} &nbsp;·&nbsp; Emitido em: ${new Date(cr.createdAt).toLocaleDateString('pt-BR')}</div>
+
+      <!-- Identificação -->
+      <div class="section">
+        <div class="section-title">Identificação do Cheque-Recibo</div>
+        <div class="field-grid">
+          <div>
+            <div class="field-label">Número</div>
+            <div class="field-value" style="font-family:monospace;font-size:14px;color:#be185d;font-weight:800">${cr.numero}</div>
+          </div>
+          <div>
+            <div class="field-label">Data de Emissão</div>
+            <div class="field-value">${new Date(cr.createdAt).toLocaleDateString('pt-BR')}</div>
+          </div>
+          <div>
+            <div class="field-label">Acerto de Notas Fiscais</div>
+            <div class="field-value" style="color:#b45309">${new Date(cr.dataAcertoNotas + (String(cr.dataAcertoNotas).length === 10 ? 'T12:00:00' : '')).toLocaleDateString('pt-BR')}</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Transferência -->
+      <div class="section">
+        <div class="section-title">Dados da Transferência</div>
+        <div class="field-grid">
+          <div>
+            <div class="field-label">Operador / Tesoureiro</div>
+            <div class="field-value">${cr.nomeOperador}</div>
+          </div>
+          <div>
+            <div class="field-label">Data de Transferência</div>
+            <div class="field-value">${new Date(cr.dataTransferencia + (String(cr.dataTransferencia).length === 10 ? 'T12:00:00' : '')).toLocaleDateString('pt-BR')}</div>
+          </div>
+          <div>
+            <div class="field-label">Método</div>
+            <div class="field-value">${cr.metodoTransferencia}</div>
+          </div>
+        </div>
+        <div style="margin-top:12px;padding:10px 16px;background:#faf9f6;border-left:3px solid #c8a84b;border-radius:0 4px 4px 0;display:inline-block;min-width:220px">
+          <div class="field-label">Valor Concedido</div>
+          <div class="field-value-big">${new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(cr.valorConcedido)}</div>
+        </div>
+      </div>
+
+      <!-- Recebedor -->
+      <div class="section">
+        <div class="section-title">Dados do Recebedor</div>
+        <div class="field-grid-2">
+          <div>
+            <div class="field-label">Nome Completo</div>
+            <div class="field-value">${cr.nomeRecebedor}</div>
+          </div>
+          <div>
+            <div class="field-label">CPF</div>
+            <div class="field-value" style="font-family:monospace">${cr.cpfRecebedor}</div>
+          </div>
+        </div>
+        ${cr.observacoes ? `
+        <div style="margin-top:10px">
+          <div class="field-label">Observações</div>
+          <div class="field-value" style="color:#4b5563;font-weight:400">${cr.observacoes}</div>
+        </div>` : ''}
+      </div>
+
+      <!-- Vinculação Projeto/Evento -->
+      ${secaoVinculacao}
+
+      <!-- Documentos Vinculados -->
+      ${(cr.anexos ?? []).length > 0 ? `
+      <div class="table-wrap">
+        <div class="section-title" style="margin-bottom:10px">◆ Documentos / Notas Fiscais Vinculadas</div>
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Descrição</th>
+              <th>Arquivo</th>
+              <th style="text-align:right">Valor</th>
+              <th>Data</th>
+              <th>Enviado por</th>
+            </tr>
+          </thead>
+          <tbody>${linhasAnexos}</tbody>
+          <tfoot>
+            <tr>
+              <td colspan="3" style="text-align:right;font-size:10px;letter-spacing:1px">TOTAL DOCUMENTADO</td>
+              <td style="text-align:right;color:#1a1a2e">${new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(cr.totalDocumentos ?? 0)}</td>
+              <td colspan="2"></td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>` : `<div class="no-docs">◆ Nenhum documento / nota fiscal vinculada até o momento.</div>`}
+
+      <!-- Resumo Financeiro -->
+      <div class="saldo-section">
+        <div class="section-title" style="margin-bottom:12px">◆ Resumo Financeiro</div>
+        <div class="saldo-grid">
+          <div class="saldo-item">
+            <div class="saldo-label">Valor Concedido</div>
+            <div class="saldo-value" style="color:#1e3a8a">${new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(cr.valorConcedido)}</div>
+          </div>
+          <div class="saldo-item">
+            <div class="saldo-label">Total Documentado</div>
+            <div class="saldo-value" style="color:#374151">${new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(cr.totalDocumentos ?? 0)}</div>
+          </div>
+          <div class="saldo-item">
+            <div class="saldo-label">Saldo Pendente</div>
+            <div class="saldo-value ${saldoZero ? 'saldo-ok' : 'saldo-pending'}">${saldoZero ? '✓ R$ 0,00' : '-' + new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(saldo)}</div>
+          </div>
+        </div>
+        ${!saldoZero && cr.valorConcedido > 0 ? `
+        <div class="saldo-bar" style="margin-top:14px">
+          <div class="saldo-bar-fill" style="width:${Math.min(100, Math.round(((cr.totalDocumentos ?? 0) / cr.valorConcedido) * 100))}%"></div>
+        </div>
+        <div style="text-align:right;font-size:9px;color:#9ca3af;margin-top:3px">${Math.min(100, Math.round(((cr.totalDocumentos ?? 0) / cr.valorConcedido) * 100))}% documentado</div>` : ''}
+      </div>
+
+      <!-- Assinaturas -->
+      <div class="sign-section">
+        <div class="section-title">◆ Autenticação &amp; Assinaturas</div>
+        <div class="sign-grid">
+          <div class="sign-box">
+            <div class="sign-line"></div>
+            <div class="sign-name">${cr.nomeRecebedor}</div>
+            <div class="sign-role">Recebedor — CPF: ${cr.cpfRecebedor}</div>
+          </div>
+          <div class="sign-box">
+            <div class="sign-line"></div>
+            <div class="sign-name">${cr.nomeOperador}</div>
+            <div class="sign-role">Operador / Tesoureiro AMO</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Footer -->
+      <div class="footer-stripe"></div>
+      <div class="legal">
+        O valor recebido pelo recebedor deverá ser gasto exclusivamente em produtos e serviços em utilidade e prestação de serviço à Associação Missão Ômega em projetos, eventos ou atividades e despesas da organização. As notas de natureza fiscal deverão ser apresentadas e correlacionadas a este documento através do seu número de série. As notas fiscais e o valor restante deverão ser devolvidos à tesouraria e a soma das notas fiscais mais o valor restante deste cheque-recibo deverá ser igual ao valor concedido declarado neste documento. O cheque-recibo é emitido somente em situações quando a concessão de dinheiro em espécie é extremamente necessária em casos que pagamentos via meios digitais se torna complexo e inviável. No caso do recebedor não apresentar as notas fiscais mais o valor restante (se houver) até a data de "Acerto de Notas Fiscais" estabelecida neste documento, será considerado inadimplente e deverá restituir o valor concedido o mais breve possível à tesouraria da AMO.
+        <br/><br/>
+        <strong>Documento gerado pelo sistema AMO Application · Tesouraria AMO · ${agora}</strong>
+      </div>
+
+    </div>
+  </div>
+</body>
+</html>`
+
+  const win = window.open('', '_blank', 'width=1000,height=1200')
+  if (win) { win.document.write(html); win.document.close(); win.focus() }
 }
 
 function printChequeRecibo(cr: ChequeRecibo) {
@@ -307,6 +633,9 @@ export default function ChequeReciboPage() {
   const [migrated, setMigrated] = useState(false)
   const [expandedAnexos, setExpandedAnexos] = useState<Record<string, boolean>>({})
   const [deletingAnexo, setDeletingAnexo] = useState<string | null>(null)
+  const [projetos, setProjetos] = useState<ProjetoItem[]>([])
+  const [eventos, setEventos] = useState<EventoItem[]>([])
+  const [eventoAvulso, setEventoAvulso] = useState(false)
 
   const showToast = (msg: string, type: 'success' | 'error' = 'success') => {
     setToast({ msg, type }); setTimeout(() => setToast(null), 3500)
@@ -316,13 +645,17 @@ export default function ChequeReciboPage() {
   const fetchData = useCallback(async () => {
     setLoading(true)
     try {
-      const [rd, rm] = await Promise.all([
+      const [rd, rm, rp, re] = await Promise.all([
         fetch('/api/cheque-recibo'),
         fetch('/api/auxiliares?tipo=metodos'),
+        fetch('/api/projetos'),
+        fetch('/api/eventos'),
       ])
-      const [jd, jm] = await Promise.all([rd.json(), rm.json()])
+      const [jd, jm, jp, je] = await Promise.all([rd.json(), rm.json(), rp.json(), re.json()])
       if (jd.success) { setData(jd.data); setProximoNumero(jd.proximo) }
       if (jm.success) setMetodos(jm.data)
+      if (jp.success) setProjetos(jp.data.map((p: { id: string; nome: string }) => ({ id: p.id, nome: p.nome })))
+      if (je.success) setEventos(je.data.map((e: { id: string; nome: string; projetoVinculadoId: string | null }) => ({ id: e.id, nome: e.nome, projetoVinculadoId: e.projetoVinculadoId ?? null })))
     } finally { setLoading(false) }
   }, [])
 
@@ -336,9 +669,16 @@ export default function ChequeReciboPage() {
       .catch(() => { setMigrated(true); fetchData() })
   }, [fetchData])
 
+  const eventosFiltrados = useMemo(() => {
+    if (eventoAvulso) return eventos.filter(e => !e.projetoVinculadoId)
+    if (form.projetoId) return eventos.filter(e => e.projetoVinculadoId === form.projetoId)
+    return eventos
+  }, [eventos, form.projetoId, eventoAvulso])
+
   const openCreate = () => {
     setEditing(null)
     setForm({ ...emptyForm })
+    setEventoAvulso(false)
     setModalAlert(null)
     setModalOpen(true)
   }
@@ -354,7 +694,10 @@ export default function ChequeReciboPage() {
       cpfRecebedor: cr.cpfRecebedor,
       dataAcertoNotas: String(cr.dataAcertoNotas).slice(0, 10),
       observacoes: cr.observacoes || '',
+      projetoId: cr.projetoId || '',
+      eventoId: cr.eventoId || '',
     })
+    setEventoAvulso(false)
     setModalAlert(null)
     setModalOpen(true)
   }
@@ -369,6 +712,8 @@ export default function ChequeReciboPage() {
         ...form,
         valorConcedido: parseBRL(form.valorConcedido),
         observacoes: form.observacoes || null,
+        projetoId: form.projetoId || null,
+        eventoId: form.eventoId || null,
       }
       const url = editing ? `/api/cheque-recibo/${editing.id}` : '/api/cheque-recibo'
       const method = editing ? 'PUT' : 'POST'
@@ -496,11 +841,30 @@ export default function ChequeReciboPage() {
                         <span className="text-navy-600 text-xs">{cr.observacoes}</span>
                       </div>
                     )}
+                    {cr.projetoId && projetos.find(p => p.id === cr.projetoId) && (
+                      <div>
+                        <span className="text-navy-400 text-xs font-medium block">Projeto</span>
+                        <span className="text-navy-800 text-xs font-medium">{projetos.find(p => p.id === cr.projetoId)?.nome}</span>
+                      </div>
+                    )}
+                    {cr.eventoId && eventos.find(e => e.id === cr.eventoId) && (
+                      <div>
+                        <span className="text-navy-400 text-xs font-medium block">Evento</span>
+                        <span className="text-navy-800 text-xs font-medium">{eventos.find(e => e.id === cr.eventoId)?.nome}</span>
+                      </div>
+                    )}
                   </div>
                 </div>
 
                 {/* Right: actions */}
                 <div className="flex flex-col gap-2 shrink-0">
+                  <button
+                    onClick={() => printRelatorio(cr, projetos.find(p => p.id === cr.projetoId)?.nome ?? null, eventos.find(e => e.id === cr.eventoId)?.nome ?? null)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-700 text-sm font-medium transition-colors"
+                    title="Gerar Relatório do CR"
+                  >
+                    <FileDown className="w-4 h-4" /> Relatório
+                  </button>
                   <button
                     onClick={() => printChequeRecibo(cr)}
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-pink-50 hover:bg-pink-100 text-pink-700 text-sm font-medium transition-colors"
@@ -693,6 +1057,64 @@ export default function ChequeReciboPage() {
               onChange={e => setForm(p => ({ ...p, observacoes: e.target.value }))}
               className="form-input resize-none"
             />
+          </div>
+
+          {/* Projeto & Evento */}
+          <div className="border-t border-cream-200 pt-4">
+            <p className="text-xs font-semibold text-navy-500 uppercase tracking-wide mb-3 flex items-center gap-2">
+              <FolderOpen className="w-3.5 h-3.5" /> Vinculação — Projeto &amp; Evento
+            </p>
+            <div className="form-group mb-3">
+              <label>Projeto</label>
+              <select
+                value={form.projetoId}
+                onChange={e => {
+                  setForm(p => ({ ...p, projetoId: e.target.value, eventoId: '' }))
+                  setEventoAvulso(false)
+                }}
+                className="form-input"
+              >
+                <option value="">— Nenhum projeto —</option>
+                {projetos.map(p => (
+                  <option key={p.id} value={p.id}>{p.nome}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="form-group">
+              {/* Checkbox Evento Avulso */}
+              <div className="flex items-center gap-2 mb-2">
+                <input
+                  type="checkbox"
+                  id="eventoAvulso"
+                  checked={eventoAvulso}
+                  onChange={e => {
+                    setEventoAvulso(e.target.checked)
+                    if (e.target.checked) setForm(p => ({ ...p, projetoId: '', eventoId: '' }))
+                    else setForm(p => ({ ...p, eventoId: '' }))
+                  }}
+                  className="w-4 h-4 rounded border-slate-300 text-navy-600 cursor-pointer"
+                />
+                <label htmlFor="eventoAvulso" className="text-sm font-medium text-navy-600 cursor-pointer select-none">
+                  Evento Avulso <span className="text-xs text-navy-400 font-normal">(sem vínculo com projeto)</span>
+                </label>
+              </div>
+              <label>Evento</label>
+              <select
+                value={form.eventoId}
+                onChange={e => setForm(p => ({ ...p, eventoId: e.target.value }))}
+                className="form-input"
+                disabled={!eventoAvulso && !form.projetoId && eventos.length > 0}
+              >
+                <option value="">— Nenhum evento —</option>
+                {eventosFiltrados.map(e => (
+                  <option key={e.id} value={e.id}>{e.nome}</option>
+                ))}
+              </select>
+              {!eventoAvulso && !form.projetoId && (
+                <p className="text-xs text-navy-400 mt-1">Selecione um projeto ou marque "Evento Avulso" para filtrar eventos</p>
+              )}
+            </div>
           </div>
 
           <div className="flex justify-end gap-3 pt-2">
