@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import { Plus, Printer, Pencil, Trash2, Banknote, CalendarClock, Paperclip, ChevronDown, ChevronUp, ExternalLink, X, FileText, Image, File, FileSpreadsheet, FolderOpen, FileDown, Archive } from 'lucide-react'
+import { Plus, Printer, Pencil, Trash2, Banknote, CalendarClock, Paperclip, ChevronDown, ChevronUp, ExternalLink, X, FileText, Image, File, FileSpreadsheet, FolderOpen, FileDown, Archive, ShieldAlert, Eye, EyeOff } from 'lucide-react'
 import Modal from '@/components/ui/Modal'
 import CurrencyInput, { parseBRL } from '@/components/ui/CurrencyInput'
 import DateInput from '@/components/ui/DateInput'
@@ -643,10 +643,49 @@ export default function ChequeReciboPage() {
   const [eventoAvulso, setEventoAvulso] = useState(false)
   const [filtroStatus, setFiltroStatus] = useState<'pendentes' | 'arquivados' | 'todos'>('pendentes')
   const [arquivando, setArquivando] = useState<string | null>(null)
+  const [currentUserRole, setCurrentUserRole] = useState<string>('')
+  const [adminAuth, setAdminAuth] = useState<{
+    open: boolean
+    email: string
+    senha: string
+    showSenha: boolean
+    loading: boolean
+    error: string
+    pendingAction: (() => void) | null
+  }>({ open: false, email: '', senha: '', showSenha: false, loading: false, error: '', pendingAction: null })
 
   const showToast = (msg: string, type: 'success' | 'error' = 'success') => {
     setToast({ msg, type }); setTimeout(() => setToast(null), 3500)
     setModalAlert({ type, message: msg }); setTimeout(() => setModalAlert(null), 4000)
+  }
+
+  const isAdminUser = ['admin', 'superadmin'].includes(currentUserRole.toLowerCase())
+
+  // Intercepta ações em CRs arquivados — exige autenticação admin para usuários comuns
+  const guardArquivado = (cr: ChequeRecibo, action: () => void) => {
+    if (!cr.arquivado || isAdminUser) { action(); return }
+    setAdminAuth(p => ({ ...p, open: true, email: '', senha: '', error: '', pendingAction: action }))
+  }
+
+  const handleAdminAuthSubmit = async () => {
+    setAdminAuth(p => ({ ...p, loading: true, error: '' }))
+    try {
+      const r = await fetch('/api/auth/verify-admin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: adminAuth.email, senha: adminAuth.senha }),
+      })
+      const j = await r.json()
+      if (j.success) {
+        const action = adminAuth.pendingAction
+        setAdminAuth({ open: false, email: '', senha: '', showSenha: false, loading: false, error: '', pendingAction: null })
+        action?.()
+      } else {
+        setAdminAuth(p => ({ ...p, loading: false, error: j.error || 'Credenciais inválidas.' }))
+      }
+    } catch {
+      setAdminAuth(p => ({ ...p, loading: false, error: 'Erro de conexão.' }))
+    }
   }
 
   const fetchData = useCallback(async () => {
@@ -664,6 +703,10 @@ export default function ChequeReciboPage() {
       if (jp.success) setProjetos(jp.data.map((p: { id: string; nome: string }) => ({ id: p.id, nome: p.nome })))
       if (je.success) setEventos(je.data.map((e: { id: string; nome: string; projetoVinculadoId: string | null }) => ({ id: e.id, nome: e.nome, projetoVinculadoId: e.projetoVinculadoId ?? null })))
     } finally { setLoading(false) }
+  }, [])
+
+  useEffect(() => {
+    fetch('/api/auth/me').then(r => r.json()).then(j => { if (j.usuario?.role) setCurrentUserRole(j.usuario.role) }).catch(() => {})
   }, [])
 
   useEffect(() => {
@@ -914,7 +957,7 @@ export default function ChequeReciboPage() {
                     <Printer className="w-4 h-4" /> Imprimir
                   </button>
                   <button
-                    onClick={() => openEdit(cr)}
+                    onClick={() => guardArquivado(cr, () => openEdit(cr))}
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-navy-50 hover:bg-navy-100 text-navy-700 text-sm font-medium transition-colors"
                     title="Editar"
                   >
@@ -931,7 +974,7 @@ export default function ChequeReciboPage() {
                     </button>
                   )}
                   <button
-                    onClick={() => setDeleteConfirm(cr.id)}
+                    onClick={() => guardArquivado(cr, () => setDeleteConfirm(cr.id))}
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-50 hover:bg-red-100 text-red-700 text-sm font-medium transition-colors"
                     title="Excluir"
                   >
@@ -974,7 +1017,7 @@ export default function ChequeReciboPage() {
                           <ExternalLink className="w-3.5 h-3.5" />
                         </a>
                         <button
-                          onClick={() => handleDeleteAnexo(cr.id, anexo.id)}
+                          onClick={() => guardArquivado(cr, () => handleDeleteAnexo(cr.id, anexo.id))}
                           disabled={deletingAnexo === anexo.id}
                           className="p-1 rounded hover:bg-red-100 text-red-400 hover:text-red-600 transition-colors shrink-0 disabled:opacity-50"
                           title="Remover anexo"
@@ -1217,6 +1260,76 @@ export default function ChequeReciboPage() {
               className="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white font-semibold text-sm transition-colors"
             >
               Excluir
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Admin Auth Modal — exigido para ações em CRs arquivados por usuários comuns */}
+      <Modal
+        isOpen={adminAuth.open}
+        onClose={() => setAdminAuth(p => ({ ...p, open: false, error: '' }))}
+        title="Autorização Necessária"
+        size="sm"
+      >
+        <div className="space-y-4">
+          <div className="flex items-start gap-3 p-3 rounded-xl bg-amber-50 border border-amber-200">
+            <ShieldAlert className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+            <p className="text-sm text-amber-800">
+              Este Cheque-Recibo está <strong>arquivado</strong>. Para realizar esta ação, informe as credenciais de um usuário <strong>Administrador</strong>.
+            </p>
+          </div>
+          <div className="form-group">
+            <label>E-mail do Administrador <span className="required-star">*</span></label>
+            <input
+              type="email"
+              autoComplete="off"
+              value={adminAuth.email}
+              onChange={e => setAdminAuth(p => ({ ...p, email: e.target.value, error: '' }))}
+              className="form-input"
+              placeholder="admin@exemplo.com"
+            />
+          </div>
+          <div className="form-group">
+            <label>Senha <span className="required-star">*</span></label>
+            <div className="relative">
+              <input
+                type={adminAuth.showSenha ? 'text' : 'password'}
+                autoComplete="new-password"
+                value={adminAuth.senha}
+                onChange={e => setAdminAuth(p => ({ ...p, senha: e.target.value, error: '' }))}
+                onKeyDown={e => { if (e.key === 'Enter') handleAdminAuthSubmit() }}
+                className="form-input pr-10"
+                placeholder="••••••••"
+              />
+              <button
+                type="button"
+                onClick={() => setAdminAuth(p => ({ ...p, showSenha: !p.showSenha }))}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-navy-400 hover:text-navy-600"
+                tabIndex={-1}
+              >
+                {adminAuth.showSenha ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
+            </div>
+          </div>
+          {adminAuth.error && (
+            <p className="text-sm text-red-600 font-medium">{adminAuth.error}</p>
+          )}
+          <div className="flex justify-end gap-3">
+            <button
+              onClick={() => setAdminAuth(p => ({ ...p, open: false, error: '' }))}
+              className="btn-secondary"
+              disabled={adminAuth.loading}
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={handleAdminAuthSubmit}
+              disabled={adminAuth.loading || !adminAuth.email || !adminAuth.senha}
+              className="px-4 py-2 rounded-xl bg-navy-700 hover:bg-navy-800 text-white font-semibold text-sm transition-colors disabled:opacity-50 flex items-center gap-2"
+            >
+              <ShieldAlert className="w-4 h-4" />
+              {adminAuth.loading ? 'Verificando...' : 'Autorizar'}
             </button>
           </div>
         </div>
