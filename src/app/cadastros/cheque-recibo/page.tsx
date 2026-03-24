@@ -113,14 +113,15 @@ function printRelatorio(
     </tr>
   `).join('')
 
-  const secaoVinculacao = (projetoNome || eventoNome) ? `
+  const projetoDisplay = projetoNome ?? 'Administração Geral'
+  const secaoVinculacao = `
     <div class="section">
       <div class="section-title">◆ Vinculação — Projeto &amp; Evento</div>
       <div class="field-grid">
-        ${projetoNome ? `<div class="field"><div class="field-label">Projeto</div><div class="field-value">${projetoNome}</div></div>` : ''}
-        ${eventoNome  ? `<div class="field"><div class="field-label">Evento</div><div class="field-value">${eventoNome}</div></div>` : ''}
+        <div class="field"><div class="field-label">Projeto</div><div class="field-value">${projetoDisplay}</div></div>
+        ${eventoNome ? `<div class="field"><div class="field-label">Evento</div><div class="field-value">${eventoNome}</div></div>` : ''}
       </div>
-    </div>` : ''
+    </div>`
 
   const html = `<!DOCTYPE html>
 <html lang="pt-BR">
@@ -843,12 +844,10 @@ export default function ChequeReciboPage() {
                         <span className="text-navy-600 text-xs">{cr.observacoes}</span>
                       </div>
                     )}
-                    {cr.projetoNome && (
-                      <div>
-                        <span className="text-navy-400 text-xs font-medium block">Projeto</span>
-                        <span className="text-navy-800 text-xs font-medium">{cr.projetoNome}</span>
-                      </div>
-                    )}
+                    <div>
+                      <span className="text-navy-400 text-xs font-medium block">Projeto</span>
+                      <span className="text-navy-800 text-xs font-medium">{cr.projetoNome ?? 'Administração Geral'}</span>
+                    </div>
                     {cr.eventoNome && (
                       <div>
                         <span className="text-navy-400 text-xs font-medium block">Evento</span>
@@ -1096,9 +1095,15 @@ export default function ChequeReciboPage() {
                   id="eventoAvulso"
                   checked={eventoAvulso}
                   onChange={e => {
-                    setEventoAvulso(e.target.checked)
-                    if (e.target.checked) setForm(p => ({ ...p, projetoId: '', eventoId: '' }))
-                    else setForm(p => ({ ...p, eventoId: '' }))
+                    const checked = e.target.checked
+                    setEventoAvulso(checked)
+                    if (checked) {
+                      const avulsos = eventos.filter(ev => !ev.projetoVinculadoId)
+                      const autoEvento = avulsos.length === 1 ? avulsos[0].id : ''
+                      setForm(p => ({ ...p, projetoId: '', eventoId: autoEvento }))
+                    } else {
+                      setForm(p => ({ ...p, eventoId: '' }))
+                    }
                   }}
                   className="w-4 h-4 rounded border-slate-300 text-navy-600 cursor-pointer"
                 />
