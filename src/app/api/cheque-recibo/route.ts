@@ -9,7 +9,7 @@ function formatNumero(seq: number) {
   return `CR-${String(seq).padStart(3, '0')}/${ano}`
 }
 
-// GET — list all records + next sequence number (preview)
+// GET — list all records + next sequence number (preview) + anexos summary
 export async function GET() {
   try {
     const [items, rows] = await Promise.all([
@@ -19,9 +19,41 @@ export async function GET() {
       `,
     ])
     const ultimo = rows[0]?.ultimo ?? 0
+
+    // Busca anexos de todos os CRs (com tratamento se tabela ainda não existe)
+    type AnexoRow = {
+      id: string; chequeReciboId: string; descricao: string; nomeArquivo: string;
+      tipoArquivo: string; tamanhoArquivo: number; urlArquivo: string;
+      pathArquivo: string | null; origemCaptura: string; valorDocumento: number;
+      enviadoPorNome: string; createdAt: Date;
+    }
+    let todosAnexos: AnexoRow[] = []
+    try {
+      todosAnexos = await prisma.$queryRaw<AnexoRow[]>`
+        SELECT id, "chequeReciboId", descricao, "nomeArquivo", "tipoArquivo",
+               "tamanhoArquivo", "urlArquivo", "pathArquivo", "origemCaptura",
+               "valorDocumento", "enviadoPorNome", "createdAt"
+        FROM "ChequeReciboAnexo"
+        ORDER BY "createdAt" DESC
+      `
+    } catch { /* tabela ainda não foi criada */ }
+
+    // Agrupa anexos por chequeReciboId
+    const anexosMap: Record<string, AnexoRow[]> = {}
+    for (const a of todosAnexos) {
+      if (!anexosMap[a.chequeReciboId]) anexosMap[a.chequeReciboId] = []
+      anexosMap[a.chequeReciboId].push(a)
+    }
+
+    const data = items.map(cr => {
+      const anexos = anexosMap[cr.id] ?? []
+      const totalDocumentos = anexos.reduce((s, a) => s + Number(a.valorDocumento), 0)
+      return { ...cr, anexos, totalDocumentos }
+    })
+
     return NextResponse.json({
       success: true,
-      data: items,
+      data,
       proximo: formatNumero(ultimo + 1),
     })
   } catch {

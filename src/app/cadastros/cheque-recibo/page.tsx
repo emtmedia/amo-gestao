@@ -1,9 +1,23 @@
 'use client'
 import { useState, useEffect, useCallback } from 'react'
-import { Plus, Printer, Pencil, Trash2, Eye, Banknote, CalendarClock } from 'lucide-react'
+import { Plus, Printer, Pencil, Trash2, Banknote, CalendarClock, Paperclip, ChevronDown, ChevronUp, ExternalLink, X, FileText, Image, File, FileSpreadsheet } from 'lucide-react'
 import Modal from '@/components/ui/Modal'
 import CurrencyInput, { parseBRL } from '@/components/ui/CurrencyInput'
 import DateInput from '@/components/ui/DateInput'
+
+interface ChequeReciboAnexo {
+  id: string
+  descricao: string
+  nomeArquivo: string
+  tipoArquivo: string
+  tamanhoArquivo: number
+  urlArquivo: string
+  pathArquivo?: string | null
+  origemCaptura: string
+  valorDocumento: number
+  enviadoPorNome: string
+  createdAt: string
+}
 
 interface ChequeRecibo {
   id: string
@@ -18,6 +32,22 @@ interface ChequeRecibo {
   dataAcertoNotas: string
   observacoes?: string | null
   createdAt: string
+  anexos: ChequeReciboAnexo[]
+  totalDocumentos: number
+}
+
+function FileIconSmall({ type }: { type: string }) {
+  if (type.startsWith('image/')) return <Image size={14} className="text-blue-500" />
+  if (type.includes('pdf')) return <FileText size={14} className="text-red-500" />
+  if (type.includes('spreadsheet') || type.includes('excel') || type.includes('.sheet'))
+    return <FileSpreadsheet size={14} className="text-green-600" />
+  return <File size={14} className="text-gray-500" />
+}
+
+function fmtSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1048576) return `${(bytes / 1024).toFixed(1)} KB`
+  return `${(bytes / 1048576).toFixed(1)} MB`
 }
 
 interface Metodo { id: string; nome: string }
@@ -275,6 +305,8 @@ export default function ChequeReciboPage() {
   const [toast, setToast] = useState<{ msg: string; type: 'success' | 'error' } | null>(null)
   const [modalAlert, setModalAlert] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
   const [migrated, setMigrated] = useState(false)
+  const [expandedAnexos, setExpandedAnexos] = useState<Record<string, boolean>>({})
+  const [deletingAnexo, setDeletingAnexo] = useState<string | null>(null)
 
   const showToast = (msg: string, type: 'success' | 'error' = 'success') => {
     setToast({ msg, type }); setTimeout(() => setToast(null), 3500)
@@ -295,7 +327,10 @@ export default function ChequeReciboPage() {
   }, [])
 
   useEffect(() => {
-    fetch('/api/migrate/cheque-recibo', { method: 'POST' })
+    Promise.all([
+      fetch('/api/migrate/cheque-recibo', { method: 'POST' }),
+      fetch('/api/migrate/cheque-recibo-anexos', { method: 'POST' }),
+    ])
       .then(() => setMigrated(true))
       .then(() => fetchData())
       .catch(() => { setMigrated(true); fetchData() })
@@ -358,6 +393,20 @@ export default function ChequeReciboPage() {
     } catch { showToast('Erro ao remover', 'error') }
   }
 
+  const handleDeleteAnexo = async (crId: string, anexoId: string) => {
+    setDeletingAnexo(anexoId)
+    try {
+      const r = await fetch(`/api/cheque-recibo/${crId}/anexos/${anexoId}`, { method: 'DELETE' })
+      const j = await r.json()
+      if (j.success) { showToast('Anexo removido!'); fetchData() }
+      else showToast(j.error || 'Erro ao remover anexo', 'error')
+    } catch { showToast('Erro ao remover anexo', 'error') }
+    finally { setDeletingAnexo(null) }
+  }
+
+  const toggleAnexos = (id: string) =>
+    setExpandedAnexos(p => ({ ...p, [id]: !p[id] }))
+
   return (
     <div>
       {toast && (
@@ -391,80 +440,140 @@ export default function ChequeReciboPage() {
             <p className="text-sm text-navy-300 mt-1">Clique em "Novo Cheque-Recibo" para emitir o primeiro</p>
           </div>
         ) : (
-          data.map(cr => (
-            <div key={cr.id} className="card flex items-start justify-between gap-4 hover:shadow-md transition-shadow">
-              {/* Left: info */}
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-3 mb-3">
-                  <span className="inline-block font-mono font-bold text-sm px-3 py-1 rounded border-2 border-pink-600 text-pink-700 bg-pink-50">
-                    {cr.numero}
-                  </span>
-                  <span className="text-xs text-navy-400">emitido em {fmtDate(cr.createdAt)}</span>
-                </div>
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-6 gap-y-1 text-sm">
-                  <div>
-                    <span className="text-navy-400 text-xs font-medium block">Operador/Tesoureiro</span>
-                    <span className="text-navy-800 font-medium">{cr.nomeOperador}</span>
+          data.map(cr => {
+            const saldo = cr.valorConcedido - (cr.totalDocumentos ?? 0)
+            const saldoZero = Math.abs(saldo) < 0.005
+            const saldoNegativo = saldo < -0.005
+            const anexosExpanded = expandedAnexos[cr.id]
+
+            return (
+            <div key={cr.id} className="card hover:shadow-md transition-shadow">
+              <div className="flex items-start justify-between gap-4">
+                {/* Left: info */}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-3 mb-3">
+                    <span className="inline-block font-mono font-bold text-sm px-3 py-1 rounded border-2 border-pink-600 text-pink-700 bg-pink-50">
+                      {cr.numero}
+                    </span>
+                    <span className="text-xs text-navy-400">emitido em {fmtDate(cr.createdAt)}</span>
                   </div>
-                  <div>
-                    <span className="text-navy-400 text-xs font-medium block">Recebedor</span>
-                    <span className="text-navy-800 font-medium">{cr.nomeRecebedor}</span>
-                  </div>
-                  <div>
-                    <span className="text-navy-400 text-xs font-medium block">CPF do Recebedor</span>
-                    <span className="text-navy-800 font-mono">{cr.cpfRecebedor}</span>
-                  </div>
-                  <div>
-                    <span className="text-navy-400 text-xs font-medium block">Valor Concedido</span>
-                    <span className="text-navy-800 font-bold text-base">{fmtMoney(cr.valorConcedido)}</span>
-                  </div>
-                  <div>
-                    <span className="text-navy-400 text-xs font-medium block">Data de Transferência</span>
-                    <span className="text-navy-800">{fmtDate(String(cr.dataTransferencia).slice(0, 10))}</span>
-                  </div>
-                  <div>
-                    <span className="text-navy-400 text-xs font-medium block flex items-center gap-1"><CalendarClock className="w-3 h-3 inline" /> Acerto de NF</span>
-                    <span className="text-navy-800 font-medium">{fmtDate(String(cr.dataAcertoNotas).slice(0, 10))}</span>
-                  </div>
-                  <div>
-                    <span className="text-navy-400 text-xs font-medium block">Método</span>
-                    <span className="text-navy-800">{cr.metodoTransferencia}</span>
-                  </div>
-                  {cr.observacoes && (
-                    <div className="col-span-2">
-                      <span className="text-navy-400 text-xs font-medium block">Observações</span>
-                      <span className="text-navy-600 text-xs">{cr.observacoes}</span>
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-6 gap-y-1 text-sm">
+                    <div>
+                      <span className="text-navy-400 text-xs font-medium block">Operador/Tesoureiro</span>
+                      <span className="text-navy-800 font-medium">{cr.nomeOperador}</span>
                     </div>
-                  )}
+                    <div>
+                      <span className="text-navy-400 text-xs font-medium block">Recebedor</span>
+                      <span className="text-navy-800 font-medium">{cr.nomeRecebedor}</span>
+                    </div>
+                    <div>
+                      <span className="text-navy-400 text-xs font-medium block">CPF do Recebedor</span>
+                      <span className="text-navy-800 font-mono">{cr.cpfRecebedor}</span>
+                    </div>
+                    <div>
+                      <span className="text-navy-400 text-xs font-medium block">Valor Concedido</span>
+                      <span className="text-navy-800 font-bold text-base">{fmtMoney(cr.valorConcedido)}</span>
+                      {/* Saldo de documentos */}
+                      <span className={`text-xs font-semibold mt-0.5 block ${saldoZero ? 'text-green-600' : saldoNegativo ? 'text-orange-600' : 'text-amber-600'}`}>
+                        Saldo docs: {saldoZero ? 'R$ 0,00 ✓' : saldoNegativo ? `+${fmtMoney(Math.abs(saldo))}` : `-${fmtMoney(saldo)}`}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-navy-400 text-xs font-medium block">Data de Transferência</span>
+                      <span className="text-navy-800">{fmtDate(String(cr.dataTransferencia).slice(0, 10))}</span>
+                    </div>
+                    <div>
+                      <span className="text-navy-400 text-xs font-medium block flex items-center gap-1"><CalendarClock className="w-3 h-3 inline" /> Acerto de NF</span>
+                      <span className="text-navy-800 font-medium">{fmtDate(String(cr.dataAcertoNotas).slice(0, 10))}</span>
+                    </div>
+                    <div>
+                      <span className="text-navy-400 text-xs font-medium block">Método</span>
+                      <span className="text-navy-800">{cr.metodoTransferencia}</span>
+                    </div>
+                    {cr.observacoes && (
+                      <div className="col-span-2">
+                        <span className="text-navy-400 text-xs font-medium block">Observações</span>
+                        <span className="text-navy-600 text-xs">{cr.observacoes}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Right: actions */}
+                <div className="flex flex-col gap-2 shrink-0">
+                  <button
+                    onClick={() => printChequeRecibo(cr)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-pink-50 hover:bg-pink-100 text-pink-700 text-sm font-medium transition-colors"
+                    title="Visualizar / Imprimir"
+                  >
+                    <Printer className="w-4 h-4" /> Imprimir
+                  </button>
+                  <button
+                    onClick={() => openEdit(cr)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-navy-50 hover:bg-navy-100 text-navy-700 text-sm font-medium transition-colors"
+                    title="Editar"
+                  >
+                    <Pencil className="w-4 h-4" /> Editar
+                  </button>
+                  <button
+                    onClick={() => setDeleteConfirm(cr.id)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-50 hover:bg-red-100 text-red-700 text-sm font-medium transition-colors"
+                    title="Excluir"
+                  >
+                    <Trash2 className="w-4 h-4" /> Excluir
+                  </button>
                 </div>
               </div>
 
-              {/* Right: actions */}
-              <div className="flex flex-col gap-2 shrink-0">
+              {/* Anexos section */}
+              <div className="mt-3 border-t border-cream-200 pt-3">
                 <button
-                  onClick={() => printChequeRecibo(cr)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-pink-50 hover:bg-pink-100 text-pink-700 text-sm font-medium transition-colors"
-                  title="Visualizar / Imprimir"
+                  onClick={() => toggleAnexos(cr.id)}
+                  className="flex items-center gap-2 text-xs font-medium text-navy-500 hover:text-navy-700 transition-colors"
                 >
-                  <Printer className="w-4 h-4" /> Imprimir
+                  <Paperclip className="w-3.5 h-3.5" />
+                  {cr.anexos?.length ? (
+                    <span>{cr.anexos.length} documento{cr.anexos.length !== 1 ? 's' : ''} vinculado{cr.anexos.length !== 1 ? 's' : ''} · Total: {fmtMoney(cr.totalDocumentos ?? 0)}</span>
+                  ) : (
+                    <span className="text-navy-400">Nenhum documento vinculado</span>
+                  )}
+                  {cr.anexos?.length > 0 && (
+                    anexosExpanded
+                      ? <ChevronUp className="w-3.5 h-3.5 ml-1" />
+                      : <ChevronDown className="w-3.5 h-3.5 ml-1" />
+                  )}
                 </button>
-                <button
-                  onClick={() => openEdit(cr)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-navy-50 hover:bg-navy-100 text-navy-700 text-sm font-medium transition-colors"
-                  title="Editar"
-                >
-                  <Pencil className="w-4 h-4" /> Editar
-                </button>
-                <button
-                  onClick={() => setDeleteConfirm(cr.id)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-50 hover:bg-red-100 text-red-700 text-sm font-medium transition-colors"
-                  title="Excluir"
-                >
-                  <Trash2 className="w-4 h-4" /> Excluir
-                </button>
+
+                {anexosExpanded && cr.anexos?.length > 0 && (
+                  <div className="mt-2 space-y-1.5">
+                    {cr.anexos.map(anexo => (
+                      <div key={anexo.id} className="flex items-center gap-2 bg-slate-50 rounded-lg px-3 py-2 text-xs">
+                        <FileIconSmall type={anexo.tipoArquivo} />
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-navy-800 truncate">{anexo.descricao}</p>
+                          <p className="text-navy-400">{fmtSize(anexo.tamanhoArquivo)} · {fmtMoney(Number(anexo.valorDocumento))} · {new Date(anexo.createdAt).toLocaleDateString('pt-BR')}</p>
+                        </div>
+                        <a href={anexo.urlArquivo} target="_blank" rel="noopener noreferrer"
+                          className="p-1 rounded hover:bg-slate-200 text-navy-500 hover:text-navy-700 transition-colors shrink-0"
+                          title="Abrir arquivo">
+                          <ExternalLink className="w-3.5 h-3.5" />
+                        </a>
+                        <button
+                          onClick={() => handleDeleteAnexo(cr.id, anexo.id)}
+                          disabled={deletingAnexo === anexo.id}
+                          className="p-1 rounded hover:bg-red-100 text-red-400 hover:text-red-600 transition-colors shrink-0 disabled:opacity-50"
+                          title="Remover anexo"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
-          ))
+            )
+          })
         )}
       </div>
 

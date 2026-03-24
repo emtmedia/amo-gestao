@@ -985,6 +985,28 @@ model ChequeRecibo {
   observacoes         String?
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
+
+  anexos              ChequeReciboAnexo[]
+}
+
+model ChequeReciboAnexo {
+  id              String   @id @default(cuid())
+  chequeReciboId  String
+  descricao       String
+  nomeArquivo     String
+  tipoArquivo     String
+  tamanhoArquivo  Int
+  urlArquivo      String
+  pathArquivo     String?
+  origemCaptura   String   @default("upload")
+  valorDocumento  Float    @default(0)
+  enviadoPorId    String
+  enviadoPorNome  String
+  enviadoPorEmail String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  chequeRecibo    ChequeRecibo @relation(fields: [chequeReciboId], references: [id], onDelete: Cascade)
 }
 
 // ============================================

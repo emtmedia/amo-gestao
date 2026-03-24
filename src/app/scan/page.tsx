@@ -5,14 +5,23 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import {
   Camera, Upload, X, RotateCcw, Check, Send, Loader2, AlertCircle,
   FileText, Image, FileSpreadsheet, File, ChevronLeft, LogOut,
-  ScanLine, Paperclip, CheckCircle2, Calendar, AlignLeft
+  ScanLine, Paperclip, CheckCircle2, Calendar, AlignLeft, Inbox, Banknote, DollarSign
 } from 'lucide-react'
 
 type Step = 'home' | 'camera' | 'preview' | 'form' | 'uploading' | 'success'
+type Destino = 'inbox' | 'cheque-recibo'
 
 interface UserSession {
   nome: string
   email: string
+}
+
+interface ChequeReciboItem {
+  id: string
+  numero: string
+  nomeRecebedor: string
+  valorConcedido: number
+  totalDocumentos: number
 }
 
 function fmtSize(bytes: number): string {
@@ -50,6 +59,13 @@ export default function ScanPage() {
   const [error, setError]         = useState('')
   const [uploadProgress, setUploadProgress] = useState('')
   const [isIOS, setIsIOS]         = useState(false)
+  // Destino
+  const [destino, setDestino]           = useState<Destino>('inbox')
+  const [chequeRecibos, setChequeRecibos] = useState<ChequeReciboItem[]>([])
+  const [loadingCRs, setLoadingCRs]     = useState(false)
+  const [selectedCR, setSelectedCR]     = useState('')
+  const [valorDocumento, setValorDocumento] = useState('')
+  const [successInfo, setSuccessInfo]   = useState<{ destino: Destino; crNumero?: string } | null>(null)
 
   const videoRef     = useRef<HTMLVideoElement>(null)
   const streamRef    = useRef<MediaStream | null>(null)
@@ -209,6 +225,25 @@ export default function ScanPage() {
     e.target.value = '' // Reset para permitir selecionar o mesmo arquivo
   }
 
+  // ─── Cheque-Recibo list ───
+  async function loadChequeRecibos() {
+    setLoadingCRs(true)
+    try {
+      const res = await fetch('/api/cheque-recibo')
+      const data = await res.json()
+      if (data.success) setChequeRecibos(data.data)
+    } catch { /* ignore */ }
+    finally { setLoadingCRs(false) }
+  }
+
+  function handleDestinoChange(d: Destino) {
+    setDestino(d)
+    setSelectedCR('')
+    if (d === 'cheque-recibo' && chequeRecibos.length === 0) {
+      loadChequeRecibos()
+    }
+  }
+
   // ─── Navigation ───
   function goHome() {
     stopCamera()
@@ -217,6 +252,10 @@ export default function ScanPage() {
     setPreviewUrl('')
     setDescricao('')
     setDataVencimento('')
+    setDestino('inbox')
+    setSelectedCR('')
+    setValorDocumento('')
+    setSuccessInfo(null)
     setError('')
     setStep('home')
   }
@@ -241,10 +280,15 @@ export default function ScanPage() {
     if (!file) return
     if (!descricao.trim()) { setError('Descrição é obrigatória.'); return }
     if (!dataVencimento)   { setError('Data de vencimento é obrigatória.'); return }
+    if (destino === 'cheque-recibo') {
+      if (!selectedCR)         { setError('Selecione um Cheque-Recibo.'); return }
+      if (!valorDocumento)     { setError('Informe o valor do documento.'); return }
+      const v = parseFloat(valorDocumento.replace(',', '.'))
+      if (isNaN(v) || v < 0)  { setError('Valor inválido.'); return }
+    }
 
     setError('')
     setStep('uploading')
-    setUploadProgress('Enviando arquivo...')
 
     try {
       const fd = new FormData()
@@ -253,15 +297,29 @@ export default function ScanPage() {
       fd.append('dataVencimento', dataVencimento)
       fd.append('origemCaptura', origemCaptura)
 
-      setUploadProgress('Salvando no Inbox...')
-      const res = await fetch('/api/inbox', { method: 'POST', body: fd })
-      const data = await res.json()
-
-      if (data.ok) {
-        setStep('success')
+      if (destino === 'inbox') {
+        setUploadProgress('Salvando no Inbox...')
+        const res = await fetch('/api/inbox', { method: 'POST', body: fd })
+        const data = await res.json()
+        if (data.ok) {
+          setSuccessInfo({ destino: 'inbox' })
+          setStep('success')
+        } else {
+          setError(data.error || 'Erro ao enviar documento.')
+          setStep('form')
+        }
       } else {
-        setError(data.error || 'Erro ao enviar documento.')
-        setStep('form')
+        setUploadProgress('Vinculando ao Cheque-Recibo...')
+        fd.append('valorDocumento', valorDocumento.replace(',', '.'))
+        const res = await fetch(`/api/cheque-recibo/${selectedCR}/anexos`, { method: 'POST', body: fd })
+        const data = await res.json()
+        if (data.success) {
+          setSuccessInfo({ destino: 'cheque-recibo', crNumero: data.numero })
+          setStep('success')
+        } else {
+          setError(data.error || 'Erro ao vincular documento.')
+          setStep('form')
+        }
       }
     } catch {
       setError('Erro de conexão. Verifique sua internet e tente novamente.')
@@ -466,14 +524,104 @@ export default function ScanPage() {
                   className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
                 />
               </div>
+
+              {/* Destino */}
+              <div>
+                <label className="flex items-center gap-1.5 text-sm font-medium text-slate-700 mb-1.5">
+                  Destino do documento <span className="text-red-500">*</span>
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleDestinoChange('inbox')}
+                    className={`flex items-center gap-2 p-3 rounded-xl border-2 text-sm font-medium transition-all ${
+                      destino === 'inbox'
+                        ? 'border-blue-500 bg-blue-50 text-blue-700'
+                        : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
+                    }`}
+                  >
+                    <Inbox size={16} />
+                    Inbox
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleDestinoChange('cheque-recibo')}
+                    className={`flex items-center gap-2 p-3 rounded-xl border-2 text-sm font-medium transition-all ${
+                      destino === 'cheque-recibo'
+                        ? 'border-pink-500 bg-pink-50 text-pink-700'
+                        : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
+                    }`}
+                  >
+                    <Banknote size={16} />
+                    Cheque-Recibo
+                  </button>
+                </div>
+              </div>
+
+              {/* Campos específicos de Cheque-Recibo */}
+              {destino === 'cheque-recibo' && (
+                <>
+                  <div>
+                    <label className="flex items-center gap-1.5 text-sm font-medium text-slate-700 mb-1.5">
+                      <Banknote size={14} className="text-slate-400" />
+                      Cheque-Recibo <span className="text-red-500">*</span>
+                    </label>
+                    {loadingCRs ? (
+                      <div className="flex items-center gap-2 px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-400">
+                        <Loader2 size={14} className="animate-spin" /> Carregando...
+                      </div>
+                    ) : chequeRecibos.length === 0 ? (
+                      <div className="px-3.5 py-2.5 border border-amber-200 bg-amber-50 rounded-xl text-sm text-amber-700">
+                        Nenhum Cheque-Recibo encontrado
+                      </div>
+                    ) : (
+                      <select
+                        value={selectedCR}
+                        onChange={e => setSelectedCR(e.target.value)}
+                        className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-pink-500 focus:border-pink-500 outline-none transition-all"
+                      >
+                        <option value="">Selecione um Cheque-Recibo...</option>
+                        {chequeRecibos.map(cr => {
+                          const saldo = cr.valorConcedido - (cr.totalDocumentos ?? 0)
+                          const saldoFmt = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Math.abs(saldo))
+                          return (
+                            <option key={cr.id} value={cr.id}>
+                              {cr.numero} — {cr.nomeRecebedor} (saldo: -{saldoFmt})
+                            </option>
+                          )
+                        })}
+                      </select>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="flex items-center gap-1.5 text-sm font-medium text-slate-700 mb-1.5">
+                      <DollarSign size={14} className="text-slate-400" />
+                      Valor do documento (R$) <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      value={valorDocumento}
+                      onChange={e => setValorDocumento(e.target.value.replace(/[^0-9,.\s]/g, ''))}
+                      placeholder="0,00"
+                      className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-pink-500 focus:border-pink-500 outline-none transition-all"
+                    />
+                  </div>
+                </>
+              )}
             </div>
 
             {/* Submit */}
             <button onClick={handleSubmit}
-              disabled={!descricao.trim() || !dataVencimento}
+              disabled={
+                !descricao.trim() || !dataVencimento ||
+                (destino === 'cheque-recibo' && (!selectedCR || !valorDocumento))
+              }
               className="w-full py-4 bg-blue-600 text-white rounded-2xl font-semibold text-sm hover:bg-blue-700 active:scale-[0.98] transition-all flex items-center justify-center gap-2
                 disabled:bg-slate-300 disabled:cursor-not-allowed disabled:active:scale-100 mt-auto">
-              <Send size={18} /> Enviar Documento
+              <Send size={18} />
+              {destino === 'cheque-recibo' ? 'Vincular ao Cheque-Recibo' : 'Enviar para Inbox'}
             </button>
           </div>
         )}
@@ -490,12 +638,14 @@ export default function ScanPage() {
         {/* ═══ STEP: SUCCESS ═══ */}
         {step === 'success' && (
           <div className="flex-1 flex flex-col items-center justify-center gap-4">
-            <div className="p-4 bg-green-100 rounded-full">
-              <CheckCircle2 size={40} className="text-green-600" />
+            <div className={`p-4 rounded-full ${successInfo?.destino === 'cheque-recibo' ? 'bg-pink-100' : 'bg-green-100'}`}>
+              <CheckCircle2 size={40} className={successInfo?.destino === 'cheque-recibo' ? 'text-pink-600' : 'text-green-600'} />
             </div>
             <h3 className="text-lg font-bold text-slate-800">Documento Enviado!</h3>
             <p className="text-sm text-slate-500 text-center">
-              O documento foi enviado para o Inbox do AMO Application com sucesso.
+              {successInfo?.destino === 'cheque-recibo'
+                ? `Documento vinculado ao Cheque-Recibo ${successInfo.crNumero} com sucesso.`
+                : 'O documento foi enviado para o Inbox do AMO Application com sucesso.'}
             </p>
             <button onClick={goHome}
               className="w-full max-w-xs py-3.5 bg-blue-600 text-white rounded-xl font-semibold text-sm hover:bg-blue-700 active:scale-[0.98] transition-all flex items-center justify-center gap-2 mt-4">
