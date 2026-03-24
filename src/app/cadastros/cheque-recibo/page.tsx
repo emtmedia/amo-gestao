@@ -1074,7 +1074,7 @@ export default function ChequeReciboPage() {
                 }}
                 className="form-input"
               >
-                <option value="">— Nenhum projeto —</option>
+                <option value="">Administração Geral</option>
                 {projetos.map(p => (
                   <option key={p.id} value={p.id}>{p.nome}</option>
                 ))}
@@ -1106,7 +1106,7 @@ export default function ChequeReciboPage() {
                 className="form-input"
                 disabled={!eventoAvulso && !form.projetoId && eventos.length > 0}
               >
-                <option value="">— Nenhum evento —</option>
+                <option value="">Sem evento</option>
                 {eventosFiltrados.map(e => (
                   <option key={e.id} value={e.id}>{e.nome}</option>
                 ))}
