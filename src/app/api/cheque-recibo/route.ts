@@ -17,13 +17,16 @@ export async function GET() {
       dataTransferencia: Date; valorConcedido: number; metodoTransferencia: string;
       nomeRecebedor: string; cpfRecebedor: string; dataAcertoNotas: Date;
       observacoes: string | null; projetoId: string | null; eventoId: string | null;
+      arquivado: boolean; arquivadoEm: Date | null;
       createdAt: Date; updatedAt: Date;
     }
     const [items, rows] = await Promise.all([
       prisma.$queryRaw<CRRow[]>`
         SELECT id, numero, sequencia, "nomeOperador", "dataTransferencia", "valorConcedido",
                "metodoTransferencia", "nomeRecebedor", "cpfRecebedor", "dataAcertoNotas",
-               observacoes, "projetoId", "eventoId", "createdAt", "updatedAt"
+               observacoes, "projetoId", "eventoId",
+               COALESCE("arquivado", false) AS "arquivado", "arquivadoEm",
+               "createdAt", "updatedAt"
         FROM "ChequeRecibo" ORDER BY sequencia DESC
       `,
       prisma.$queryRaw<{ ultimo: number }[]>`

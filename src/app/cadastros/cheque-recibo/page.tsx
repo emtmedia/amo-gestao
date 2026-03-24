@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import { Plus, Printer, Pencil, Trash2, Banknote, CalendarClock, Paperclip, ChevronDown, ChevronUp, ExternalLink, X, FileText, Image, File, FileSpreadsheet, FolderOpen, FileDown } from 'lucide-react'
+import { Plus, Printer, Pencil, Trash2, Banknote, CalendarClock, Paperclip, ChevronDown, ChevronUp, ExternalLink, X, FileText, Image, File, FileSpreadsheet, FolderOpen, FileDown, Archive } from 'lucide-react'
 import Modal from '@/components/ui/Modal'
 import CurrencyInput, { parseBRL } from '@/components/ui/CurrencyInput'
 import DateInput from '@/components/ui/DateInput'
@@ -35,6 +35,8 @@ interface ChequeRecibo {
   eventoId?: string | null
   projetoNome?: string | null
   eventoNome?: string | null
+  arquivado: boolean
+  arquivadoEm?: string | null
   createdAt: string
   anexos: ChequeReciboAnexo[]
   totalDocumentos: number
@@ -639,6 +641,8 @@ export default function ChequeReciboPage() {
   const [projetos, setProjetos] = useState<ProjetoItem[]>([])
   const [eventos, setEventos] = useState<EventoItem[]>([])
   const [eventoAvulso, setEventoAvulso] = useState(false)
+  const [filtroStatus, setFiltroStatus] = useState<'pendentes' | 'arquivados' | 'todos'>('pendentes')
+  const [arquivando, setArquivando] = useState<string | null>(null)
 
   const showToast = (msg: string, type: 'success' | 'error' = 'success') => {
     setToast({ msg, type }); setTimeout(() => setToast(null), 3500)
@@ -752,6 +756,17 @@ export default function ChequeReciboPage() {
     finally { setDeletingAnexo(null) }
   }
 
+  const handleArquivar = async (id: string) => {
+    setArquivando(id)
+    try {
+      const r = await fetch(`/api/cheque-recibo/${id}`, { method: 'PATCH' })
+      const j = await r.json()
+      if (j.success) { showToast('Cheque-Recibo arquivado!'); fetchData() }
+      else showToast(j.error || 'Erro ao arquivar', 'error')
+    } catch { showToast('Erro ao arquivar', 'error') }
+    finally { setArquivando(null) }
+  }
+
   const toggleAnexos = (id: string) =>
     setExpandedAnexos(p => ({ ...p, [id]: !p[id] }))
 
@@ -772,30 +787,50 @@ export default function ChequeReciboPage() {
             <p className="text-sm text-navy-400">{data.length} registro{data.length !== 1 ? 's' : ''} · Próximo: <span className="font-mono font-semibold text-pink-700">{proximoNumero}</span></p>
           </div>
         </div>
-        <button onClick={openCreate} disabled={!migrated} className="btn-primary flex items-center gap-2">
-          <Plus className="w-4 h-4" /> Novo Cheque-Recibo
-        </button>
+        <div className="flex items-center gap-3">
+          <select
+            value={filtroStatus}
+            onChange={e => setFiltroStatus(e.target.value as 'pendentes' | 'arquivados' | 'todos')}
+            className="form-input text-sm py-2 px-3 w-36"
+          >
+            <option value="pendentes">Pendentes</option>
+            <option value="arquivados">Arquivados</option>
+            <option value="todos">Todos</option>
+          </select>
+          <button onClick={openCreate} disabled={!migrated} className="btn-primary flex items-center gap-2">
+            <Plus className="w-4 h-4" /> Novo Cheque-Recibo
+          </button>
+        </div>
       </div>
 
       {/* Cards List */}
       <div className="space-y-3">
         {loading ? (
           <div className="text-center py-12 text-navy-400">Carregando...</div>
-        ) : data.length === 0 ? (
-          <div className="card text-center py-12">
-            <Banknote className="w-12 h-12 text-navy-200 mx-auto mb-3" />
-            <p className="text-navy-400 font-medium">Nenhum Cheque-Recibo emitido ainda</p>
-            <p className="text-sm text-navy-300 mt-1">Clique em "Novo Cheque-Recibo" para emitir o primeiro</p>
-          </div>
-        ) : (
-          data.map(cr => {
+        ) : (() => {
+          const filtrado = data.filter(cr =>
+            filtroStatus === 'todos' ? true :
+            filtroStatus === 'arquivados' ? cr.arquivado :
+            !cr.arquivado
+          )
+          if (filtrado.length === 0) return (
+            <div className="card text-center py-12">
+              <Banknote className="w-12 h-12 text-navy-200 mx-auto mb-3" />
+              <p className="text-navy-400 font-medium">
+                {filtroStatus === 'arquivados' ? 'Nenhum Cheque-Recibo arquivado' :
+                 filtroStatus === 'pendentes' ? 'Nenhum Cheque-Recibo pendente' :
+                 'Nenhum Cheque-Recibo emitido ainda'}
+              </p>
+            </div>
+          )
+          return filtrado.map(cr => {
             const saldo = cr.valorConcedido - (cr.totalDocumentos ?? 0)
             const saldoZero = Math.abs(saldo) < 0.005
             const saldoNegativo = saldo < -0.005
             const anexosExpanded = expandedAnexos[cr.id]
 
             return (
-            <div key={cr.id} className="card hover:shadow-md transition-shadow">
+            <div key={cr.id} className={`card hover:shadow-md transition-shadow ${cr.arquivado ? 'bg-emerald-50 border-emerald-200' : 'bg-blue-50 border-blue-200'}`}>
               <div className="flex items-start justify-between gap-4">
                 {/* Left: info */}
                 <div className="flex-1 min-w-0">
@@ -804,6 +839,11 @@ export default function ChequeReciboPage() {
                       {cr.numero}
                     </span>
                     <span className="text-xs text-navy-400">emitido em {fmtDate(cr.createdAt)}</span>
+                    {cr.arquivado && (
+                      <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 bg-emerald-100 border border-emerald-300 rounded-full px-2 py-0.5">
+                        <Archive className="w-3 h-3" /> Arquivado
+                      </span>
+                    )}
                   </div>
                   <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-6 gap-y-1 text-sm">
                     <div>
@@ -880,6 +920,16 @@ export default function ChequeReciboPage() {
                   >
                     <Pencil className="w-4 h-4" /> Editar
                   </button>
+                  {saldoZero && !cr.arquivado && (
+                    <button
+                      onClick={() => handleArquivar(cr.id)}
+                      disabled={arquivando === cr.id}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-sm font-medium transition-colors disabled:opacity-50"
+                      title="Arquivar"
+                    >
+                      <Archive className="w-4 h-4" /> {arquivando === cr.id ? 'Arquivando...' : 'Arquivar'}
+                    </button>
+                  )}
                   <button
                     onClick={() => setDeleteConfirm(cr.id)}
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-50 hover:bg-red-100 text-red-700 text-sm font-medium transition-colors"

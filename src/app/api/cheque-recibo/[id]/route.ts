@@ -63,6 +63,21 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
   }
 }
 
+export async function PATCH(_: NextRequest, { params }: { params: { id: string } }) {
+  try {
+    await prisma.$executeRaw`
+      UPDATE "ChequeRecibo"
+      SET "arquivado" = true, "arquivadoEm" = NOW(), "updatedAt" = NOW()
+      WHERE id = ${params.id}
+    `
+    await logAudit('ARQUIVAR', 'ChequeRecibo', params.id)
+    return NextResponse.json({ success: true })
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error)
+    return NextResponse.json({ success: false, error: msg }, { status: 500 })
+  }
+}
+
 export async function DELETE(_: NextRequest, { params }: { params: { id: string } }) {
   try {
     await prisma.chequeRecibo.delete({ where: { id: params.id } })
