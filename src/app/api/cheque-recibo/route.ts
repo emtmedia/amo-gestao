@@ -59,8 +59,10 @@ export async function GET() {
 
     // Busca nomes de projetos e eventos referenciados nos CRs
     type NomeRow = { id: string; nome: string }
+    console.log('[CR GET] items eventoId values:', items.map(c => ({ id: c.id, eventoId: c.eventoId, projetoId: c.projetoId })))
     const projetoIds = [...new Set(items.map(c => c.projetoId).filter(Boolean))] as string[]
     const eventoIds  = [...new Set(items.map(c => c.eventoId).filter(Boolean))] as string[]
+    console.log('[CR GET] projetoIds:', projetoIds, '| eventoIds:', eventoIds)
 
     let projetosMap: Record<string, string> = {}
     let eventosMap:  Record<string, string> = {}
