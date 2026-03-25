@@ -88,7 +88,6 @@ export default function ScanPage() {
   const [loadingCRs, setLoadingCRs]     = useState(false)
   const [selectedCR, setSelectedCR]     = useState('')
   const [valorDocumento, setValorDocumento] = useState('')
-  const [isDocAssinado, setIsDocAssinado]   = useState(false)
   const [successInfo, setSuccessInfo]   = useState<{ destino: Destino | 'doc-assinado'; crNumero?: string; assinado?: boolean; docNumero?: string } | null>(null)
   // Doc-assinado mode (Recibo / Termo)
   const [docAssinadoMode, setDocAssinadoMode] = useState(false)
@@ -321,7 +320,6 @@ export default function ScanPage() {
   function handleDestinoChange(d: Destino) {
     setDestino(d)
     setSelectedCR('')
-    setIsDocAssinado(false)
     if (d === 'cheque-recibo' && chequeRecibos.length === 0) {
       loadChequeRecibos()
     }
@@ -338,7 +336,6 @@ export default function ScanPage() {
     setDestino('inbox')
     setSelectedCR('')
     setValorDocumento('')
-    setIsDocAssinado(false)
     setDocAssinadoMode(false)
     setDocAssinadoTipo('')
     setSelectedDocRecord('')
@@ -397,19 +394,13 @@ export default function ScanPage() {
       return
     }
 
-    // Documento assinado de CR: só precisa do CR selecionado e ser PDF
-    if (destino === 'cheque-recibo' && isDocAssinado) {
-      if (!selectedCR) { setError('Selecione um Cheque-Recibo.'); return }
-      if (file.type !== 'application/pdf') { setError('O documento assinado deve ser um arquivo PDF.'); return }
-    } else {
-      if (!descricao.trim()) { setError('Descrição é obrigatória.'); return }
-      if (!dataVencimento)   { setError('Data de vencimento é obrigatória.'); return }
-      if (destino === 'cheque-recibo') {
-        if (!selectedCR)         { setError('Selecione um Cheque-Recibo.'); return }
-        if (!valorDocumento)     { setError('Informe o valor do documento.'); return }
-        const v = parseCurrencyBR(valorDocumento)
-        if (isNaN(v) || v < 0)  { setError('Valor inválido.'); return }
-      }
+    if (!descricao.trim()) { setError('Descrição é obrigatória.'); return }
+    if (!dataVencimento)   { setError('Data de vencimento é obrigatória.'); return }
+    if (destino === 'cheque-recibo') {
+      if (!selectedCR)         { setError('Selecione um Cheque-Recibo.'); return }
+      if (!valorDocumento)     { setError('Informe o valor do documento.'); return }
+      const v = parseCurrencyBR(valorDocumento)
+      if (isNaN(v) || v < 0)  { setError('Valor inválido.'); return }
     }
 
     setError('')
@@ -418,21 +409,6 @@ export default function ScanPage() {
     try {
       const fd = new FormData()
       fd.append('file', file)
-
-      if (destino === 'cheque-recibo' && isDocAssinado) {
-        // Rota para documento assinado do CR
-        setUploadProgress('Enviando documento assinado...')
-        const res = await fetch(`/api/cheque-recibo/${selectedCR}/doc-assinado`, { method: 'POST', body: fd })
-        const data = await res.json()
-        if (data.success) {
-          setSuccessInfo({ destino: 'cheque-recibo', crNumero: data.numero, assinado: true })
-          setStep('success')
-        } else {
-          setError(data.error || 'Erro ao enviar documento assinado.')
-          setStep('form')
-        }
-        return
-      }
 
       fd.append('descricao', descricao.trim())
       fd.append('dataVencimento', dataVencimento)
@@ -901,7 +877,7 @@ export default function ScanPage() {
                 )
               })()}
 
-              {!(destino === 'cheque-recibo' && isDocAssinado) && !docAssinadoMode && (
+              {!docAssinadoMode && (
               <div>
                 <label className="flex items-center gap-1.5 text-sm font-medium text-slate-700 mb-1.5">
                   <AlignLeft size={14} className="text-slate-400" />
@@ -917,7 +893,7 @@ export default function ScanPage() {
               </div>
               )}
 
-              {!(destino === 'cheque-recibo' && isDocAssinado) && !docAssinadoMode && (
+              {!docAssinadoMode && (
               <div>
                 <label className="flex items-center gap-1.5 text-sm font-medium text-slate-700 mb-1.5">
                   <Calendar size={14} className="text-slate-400" />
@@ -1012,26 +988,7 @@ export default function ScanPage() {
                     )}
                   </div>
 
-                  {/* Checkbox: versão assinada */}
-                  <label className="flex items-start gap-3 p-3 rounded-xl border-2 cursor-pointer transition-all select-none
-                    border-emerald-200 bg-emerald-50 hover:bg-emerald-100">
-                    <input
-                      type="checkbox"
-                      checked={isDocAssinado}
-                      onChange={e => setIsDocAssinado(e.target.checked)}
-                      className="mt-0.5 w-4 h-4 accent-emerald-600 shrink-0"
-                    />
-                    <div>
-                      <p className="text-sm font-semibold text-emerald-800">Este é o documento assinado do CR</p>
-                      <p className="text-xs text-emerald-600 mt-0.5">
-                        Marque esta opção se este PDF já foi assinado (digitalmente ou rubricado e reescaneado)
-                        e deve ser vinculado como versão assinada do Cheque-Recibo selecionado.
-                      </p>
-                    </div>
-                  </label>
-
-                  {/* Campos de anexo regular — ocultos quando é doc assinado */}
-                  {!isDocAssinado && <div>
+                  <div>
                     <label className="flex items-center gap-1.5 text-sm font-medium text-slate-700 mb-1.5">
                       <DollarSign size={14} className="text-slate-400" />
                       Valor do documento (R$) <span className="text-red-500">*</span>
@@ -1062,7 +1019,7 @@ export default function ScanPage() {
                         className="w-full pl-10 pr-3.5 py-2.5 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-pink-500 focus:border-pink-500 outline-none transition-all"
                       />
                     </div>
-                  </div>}
+                  </div>
                 </>
               )}
               </>}
@@ -1073,15 +1030,13 @@ export default function ScanPage() {
               disabled={
                 docAssinadoMode
                   ? !selectedDocRecord
-                  : (destino === 'cheque-recibo' && isDocAssinado)
-                    ? !selectedCR
-                    : (!descricao.trim() || !dataVencimento ||
-                      (destino === 'cheque-recibo' && (!selectedCR || !valorDocumento)))
+                  : (!descricao.trim() || !dataVencimento ||
+                    (destino === 'cheque-recibo' && (!selectedCR || !valorDocumento)))
               }
               className="w-full py-4 bg-blue-600 text-white rounded-2xl font-semibold text-sm hover:bg-blue-700 active:scale-[0.98] transition-all flex items-center justify-center gap-2
                 disabled:bg-slate-300 disabled:cursor-not-allowed disabled:active:scale-100 mt-auto">
               <Send size={18} />
-              {docAssinadoMode || (destino === 'cheque-recibo' && isDocAssinado)
+              {docAssinadoMode
                 ? 'Enviar Documento Assinado'
                 : destino === 'cheque-recibo'
                   ? 'Vincular ao Cheque-Recibo'
