@@ -44,6 +44,7 @@ const navItems: NavItem[] = [
       { label: 'Contas de Consumo', icon: TrendingDown, href: '/cadastros/despesas/consumo' },
       { label: 'Copa e Cozinha', icon: Utensils, href: '/cadastros/despesas/copa-cozinha' },
       { label: 'Locação de Equipamentos', icon: TrendingDown, href: '/cadastros/despesas/locacao' },
+      { label: 'Prebenda', icon: Banknote, href: '/cadastros/despesas/prebenda' },
       { label: 'Serviços Digitais', icon: TrendingDown, href: '/cadastros/despesas/digital' },
       { label: 'Serviços Externos', icon: TrendingDown, href: '/cadastros/despesas/externos' },
     ]

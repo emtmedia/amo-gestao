@@ -39,12 +39,14 @@ interface ReciboItem {
   id: string
   numero: string
   nomeRecebedor: string
+  data: string
 }
 
 interface TermoItem {
   id: string
   numero: string
   nomeVoluntario: string
+  emitidoEm: string
 }
 
 function fmtSize(bytes: number): string {
@@ -96,6 +98,8 @@ export default function ScanPage() {
   const [termos, setTermos]                 = useState<TermoItem[]>([])
   const [loadingDocRecords, setLoadingDocRecords] = useState(false)
   const [selectedDocRecord, setSelectedDocRecord] = useState('')
+  const [docFilterYear, setDocFilterYear]   = useState(String(new Date().getFullYear()))
+  const [docFilterMonth, setDocFilterMonth] = useState(String(new Date().getMonth() + 1))
 
   const videoRef        = useRef<HTMLVideoElement>(null)
   const streamRef       = useRef<MediaStream | null>(null)
@@ -312,6 +316,8 @@ export default function ScanPage() {
   function handleDocAssinadoTipoChange(tipo: 'recibo' | 'termo' | 'cheque-recibo') {
     setDocAssinadoTipo(tipo)
     setSelectedDocRecord('')
+    setDocFilterYear(String(new Date().getFullYear()))
+    setDocFilterMonth(String(new Date().getMonth() + 1))
     if (tipo === 'recibo' && recibos.length === 0) loadRecibos()
     if (tipo === 'termo' && termos.length === 0) loadTermos()
     if (tipo === 'cheque-recibo' && chequeRecibos.length === 0) loadChequeRecibos()
@@ -477,6 +483,26 @@ export default function ScanPage() {
   function refreshRecibos() { setRecibos([]); loadRecibos() }
   function refreshTermos() { setTermos([]); loadTermos() }
 
+  // ─── Filtered lists for doc-assinado (recibo/termo) ───
+  const DOC_ANOS = Array.from({ length: 8 }, (_, i) => String(new Date().getFullYear() - 5 + i))
+  const DOC_MESES = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez']
+
+  const filteredRecibos = recibos.filter(r => {
+    if (!r.data) return true
+    const d = new Date(r.data)
+    const yearOk = docFilterYear === '0' || String(d.getFullYear()) === docFilterYear
+    const monthOk = docFilterMonth === '0' || String(d.getMonth() + 1) === docFilterMonth
+    return yearOk && monthOk
+  })
+
+  const filteredTermos = termos.filter(t => {
+    if (!t.emitidoEm) return true
+    const d = new Date(t.emitidoEm)
+    const yearOk = docFilterYear === '0' || String(d.getFullYear()) === docFilterYear
+    const monthOk = docFilterMonth === '0' || String(d.getMonth() + 1) === docFilterMonth
+    return yearOk && monthOk
+  })
+
   // ─── Auth loading ───
   if (authLoading) {
     return (
@@ -619,6 +645,34 @@ export default function ScanPage() {
               </div>
             </div>
 
+            {/* Filtro Ano/Mês — apenas para Recibo e Termo */}
+            {(docAssinadoTipo === 'recibo' || docAssinadoTipo === 'termo') && (
+              <div className="flex gap-2">
+                <div className="flex-1">
+                  <label className="text-xs font-medium text-slate-500 mb-1 block">Ano</label>
+                  <select
+                    value={docFilterYear}
+                    onChange={e => { setDocFilterYear(e.target.value); setSelectedDocRecord('') }}
+                    className="w-full px-2.5 py-2 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-slate-400"
+                  >
+                    <option value="0">Todos</option>
+                    {DOC_ANOS.map(a => <option key={a} value={a}>{a}</option>)}
+                  </select>
+                </div>
+                <div className="flex-1">
+                  <label className="text-xs font-medium text-slate-500 mb-1 block">Mês</label>
+                  <select
+                    value={docFilterMonth}
+                    onChange={e => { setDocFilterMonth(e.target.value); setSelectedDocRecord('') }}
+                    className="w-full px-2.5 py-2 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-slate-400"
+                  >
+                    <option value="0">Todos</option>
+                    {DOC_MESES.map((m, i) => <option key={i + 1} value={String(i + 1)}>{m}</option>)}
+                  </select>
+                </div>
+              </div>
+            )}
+
             {/* Dropdown de registros */}
             {docAssinadoTipo && (
               <div>
@@ -639,7 +693,7 @@ export default function ScanPage() {
                   <div className="flex items-center gap-2 px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-400">
                     <Loader2 size={14} className="animate-spin" /> Carregando...
                   </div>
-                ) : (docAssinadoTipo === 'recibo' ? recibos : docAssinadoTipo === 'termo' ? termos : chequeRecibos).length === 0 ? (
+                ) : (docAssinadoTipo === 'recibo' ? filteredRecibos : docAssinadoTipo === 'termo' ? filteredTermos : chequeRecibos).length === 0 ? (
                   <div className="px-3.5 py-2.5 border border-amber-200 bg-amber-50 rounded-xl text-sm text-amber-700">
                     Nenhum registro encontrado
                   </div>
@@ -659,11 +713,11 @@ export default function ScanPage() {
                   >
                     <option value="">Selecione...</option>
                     {docAssinadoTipo === 'recibo'
-                      ? recibos.map(r => (
+                      ? filteredRecibos.map(r => (
                           <option key={r.id} value={r.id}>{r.numero} — {r.nomeRecebedor}</option>
                         ))
                       : docAssinadoTipo === 'termo'
-                        ? termos.map(t => (
+                        ? filteredTermos.map(t => (
                             <option key={t.id} value={t.id}>{t.numero} — {t.nomeVoluntario}</option>
                           ))
                         : chequeRecibos.map(cr => (
