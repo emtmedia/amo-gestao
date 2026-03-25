@@ -345,6 +345,13 @@ export default function ScanPage() {
   }
 
   function goToForm() {
+    // Re-fetch silencioso dos CRs para garantir totalDocumentos atualizado no card
+    if (docAssinadoMode && docAssinadoTipo === 'cheque-recibo') {
+      fetch('/api/cheque-recibo')
+        .then(r => r.json())
+        .then(data => { if (data.success) setChequeRecibos(data.data) })
+        .catch(() => {})
+    }
     setStep('form')
   }
 
