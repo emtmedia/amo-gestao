@@ -40,7 +40,6 @@ const navItems: NavItem[] = [
     label: 'Despesas', icon: TrendingDown,
     children: [
       { label: 'Aquisições', icon: Package, href: '/cadastros/aquisicoes' },
-      { label: 'Cheque-Recibo', icon: Banknote, href: '/cadastros/cheque-recibo' },
       { label: 'Conservação/Zeladoria', icon: Wrench, href: '/cadastros/despesas/conservacao' },
       { label: 'Contas de Consumo', icon: TrendingDown, href: '/cadastros/despesas/consumo' },
       { label: 'Copa e Cozinha', icon: Utensils, href: '/cadastros/despesas/copa-cozinha' },
@@ -99,6 +98,7 @@ const navItems: NavItem[] = [
   },
   { label: 'Biblioteca de Documentos', icon: FolderOpen, href: '/cadastros/documentos' },
   { label: 'Inbox', icon: Inbox, href: '/inbox' },
+  { label: 'Cheque-Recibo', icon: Banknote, href: '/cadastros/cheque-recibo' },
   { label: 'Relatórios com IA', icon: Sparkles, href: '/relatorio-ia' },
   {
     label: 'Imóveis', icon: Building2,
