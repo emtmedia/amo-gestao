@@ -22,19 +22,39 @@ interface Voluntario {
   dataNascimento: string; enderecoCompleto: string; genero: string
 }
 
-const fmtDate = (d: string) =>
-  d ? new Date(d).toLocaleDateString('pt-BR') : '—'
+// Always derive date parts from local timezone to avoid UTC-offset mismatches
+const localDateParts = (d: string) => {
+  if (!d) return null
+  const dt = new Date(d)
+  return {
+    y: dt.getFullYear(),
+    m: String(dt.getMonth() + 1).padStart(2, '0'),
+    day: String(dt.getDate()).padStart(2, '0'),
+  }
+}
 
-const fmtDateISO = (d: string) =>
-  d ? new Date(d).toISOString().slice(0, 10) : ''
+const fmtDate = (d: string) => {
+  const p = localDateParts(d)
+  return p ? `${p.day}/${p.m}/${p.y}` : '—'
+}
+
+const fmtDateISO = (d: string) => {
+  const p = localDateParts(d)
+  return p ? `${p.y}-${p.m}-${p.day}` : ''
+}
 
 const fmtDataExtenso = (iso: string) => {
-  const d = iso ? new Date(iso + (iso.length === 10 ? 'T12:00:00' : '')) : new Date()
+  // Force noon local time when only date string to avoid day-off from UTC shift
+  const d = iso ? new Date(iso.length === 10 ? iso + 'T12:00:00' : iso) : new Date()
   return d.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })
 }
 
-const fmtDateBR = (d: string) =>
-  d ? new Date(d + (d.length === 10 ? 'T12:00:00' : '')).toLocaleDateString('pt-BR') : '___/___/______'
+const fmtDateBR = (d: string) => {
+  if (!d) return '___/___/______'
+  const str = String(d).slice(0, 10)
+  const dt = new Date(str + 'T12:00:00')
+  return dt.toLocaleDateString('pt-BR')
+}
 
 const pronome = (g: string) => {
   const l = (g ?? '').toLowerCase()
