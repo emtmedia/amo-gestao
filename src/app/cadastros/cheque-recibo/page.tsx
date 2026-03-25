@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import { Plus, Printer, Pencil, Trash2, Banknote, CalendarClock, Paperclip, ChevronDown, ChevronUp, ExternalLink, X, FileText, Image, File, FileSpreadsheet, FolderOpen, FileDown, Archive, ShieldAlert, Eye, EyeOff } from 'lucide-react'
+import { Plus, Printer, Pencil, Trash2, Banknote, CalendarClock, Paperclip, ChevronDown, ChevronUp, ExternalLink, X, FileText, Image, File, FileSpreadsheet, FolderOpen, FileDown, Archive, ShieldAlert, Eye, EyeOff, AlertTriangle } from 'lucide-react'
 import DocAssinadoBadge from '@/components/ui/DocAssinadoBadge'
 import Modal from '@/components/ui/Modal'
 import CurrencyInput, { parseBRL } from '@/components/ui/CurrencyInput'
@@ -647,6 +647,7 @@ export default function ChequeReciboPage() {
   const [filtroStatus, setFiltroStatus] = useState<'pendentes' | 'arquivados' | 'todos'>('pendentes')
   const [arquivando, setArquivando] = useState<string | null>(null)
   const [currentUserRole, setCurrentUserRole] = useState<string>('')
+  const [printChoice, setPrintChoice] = useState<ChequeRecibo | null>(null)
   const [adminAuth, setAdminAuth] = useState<{
     open: boolean
     email: string
@@ -773,6 +774,10 @@ export default function ChequeReciboPage() {
       const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
       const j = await res.json()
       if (j.success) {
+        // Se estava editando e havia doc assinado, exclui pois os dados mudaram
+        if (editing?.docAssinadoUrl) {
+          await fetch(`/api/cheque-recibo/${editing.id}/doc-assinado`, { method: 'DELETE' }).catch(() => {})
+        }
         showToast(editing ? 'Atualizado com sucesso!' : `Cheque-Recibo ${j.numero} emitido!`)
         setModalOpen(false)
         fetchData()
@@ -961,16 +966,16 @@ export default function ChequeReciboPage() {
                     <FileDown className="w-4 h-4" /> Relatório
                   </button>
                   <button
-                    onClick={() => printChequeRecibo(cr)}
+                    onClick={() => cr.docAssinadoUrl ? setPrintChoice(cr) : printChequeRecibo(cr)}
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-pink-50 hover:bg-pink-100 text-pink-700 text-sm font-medium transition-colors"
                     title="Visualizar / Imprimir"
                   >
                     <Printer className="w-4 h-4" /> Imprimir
                   </button>
                   <button
-                    onClick={() => guardArquivado(cr, () => openEdit(cr))}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-navy-50 hover:bg-navy-100 text-navy-700 text-sm font-medium transition-colors"
-                    title="Editar"
+                    onClick={() => isAdminUser ? guardArquivado(cr, () => openEdit(cr)) : showToast('Somente Admin ou SuperAdmin pode editar registros.', 'error')}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${isAdminUser ? 'bg-navy-50 hover:bg-navy-100 text-navy-700' : 'bg-gray-50 text-gray-300 cursor-not-allowed'}`}
+                    title={isAdminUser ? 'Editar' : 'Sem permissão para editar'}
                   >
                     <Pencil className="w-4 h-4" /> Editar
                   </button>
@@ -985,9 +990,9 @@ export default function ChequeReciboPage() {
                     </button>
                   )}
                   <button
-                    onClick={() => guardArquivado(cr, () => setDeleteConfirm(cr.id))}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-50 hover:bg-red-100 text-red-700 text-sm font-medium transition-colors"
-                    title="Excluir"
+                    onClick={() => isAdminUser ? guardArquivado(cr, () => setDeleteConfirm(cr.id)) : showToast('Somente Admin ou SuperAdmin pode excluir registros.', 'error')}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${isAdminUser ? 'bg-red-50 hover:bg-red-100 text-red-700' : 'bg-gray-50 text-gray-300 cursor-not-allowed'}`}
+                    title={isAdminUser ? 'Excluir' : 'Sem permissão para excluir'}
                   >
                     <Trash2 className="w-4 h-4" /> Excluir
                   </button>
@@ -1046,6 +1051,41 @@ export default function ChequeReciboPage() {
         })()}
       </div>
 
+      {/* Print Choice Modal */}
+      {printChoice && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setPrintChoice(null)}>
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm mx-4 p-6 space-y-3" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-1">
+              <h3 className="font-semibold text-navy-800">Qual versão deseja imprimir?</h3>
+              <button onClick={() => setPrintChoice(null)} className="p-1 rounded-lg hover:bg-cream-100 text-navy-400"><X className="w-4 h-4" /></button>
+            </div>
+            <button
+              onClick={() => { printChequeRecibo(printChoice); setPrintChoice(null) }}
+              className="w-full flex items-center gap-3 p-4 rounded-xl border-2 border-pink-100 hover:border-pink-300 hover:bg-pink-50 transition-colors text-left"
+            >
+              <FileText className="w-6 h-6 text-pink-500 shrink-0" />
+              <div>
+                <p className="font-semibold text-navy-800 text-sm">Documento Original</p>
+                <p className="text-xs text-navy-400 mt-0.5">Versão sem assinatura (gerada pelo sistema)</p>
+              </div>
+            </button>
+            <a
+              href={printChoice.docAssinadoUrl!}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={() => setPrintChoice(null)}
+              className="w-full flex items-center gap-3 p-4 rounded-xl border-2 border-emerald-100 hover:border-emerald-300 hover:bg-emerald-50 transition-colors text-left"
+            >
+              <Printer className="w-6 h-6 text-emerald-600 shrink-0" />
+              <div>
+                <p className="font-semibold text-navy-800 text-sm">Documento Assinado (PDF)</p>
+                <p className="text-xs text-navy-400 mt-0.5">{printChoice.docAssinadoNome ?? 'Versão com assinatura'}</p>
+              </div>
+            </a>
+          </div>
+        </div>
+      )}
+
       {/* Create / Edit Modal */}
       <Modal
         isOpen={modalOpen}
@@ -1055,6 +1095,12 @@ export default function ChequeReciboPage() {
         alert={modalAlert}
       >
         <div className="space-y-4">
+          {editing?.docAssinadoUrl && (
+            <div className="flex items-start gap-2 px-3 py-2.5 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-800">
+              <AlertTriangle className="w-4 h-4 text-amber-500 mt-0.5 shrink-0" />
+              <span>Este registro possui um <strong>documento assinado</strong> anexado. Ao salvar as alterações, o documento assinado será <strong>excluído permanentemente</strong>, pois os dados foram modificados.</span>
+            </div>
+          )}
           {/* Número (read-only quando criando) */}
           {!editing && (
             <div className="form-group">

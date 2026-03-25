@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import { Receipt, Pencil, Trash2, Printer, RotateCcw, Plus, X } from 'lucide-react'
+import { Receipt, Pencil, Trash2, Printer, RotateCcw, Plus, X, FileText, AlertTriangle } from 'lucide-react'
 import Modal from '@/components/ui/Modal'
 import CurrencyInput, { parseBRL } from '@/components/ui/CurrencyInput'
 import DateInput from '@/components/ui/DateInput'
@@ -144,6 +144,9 @@ export default function RecibosPage() {
   const [saving, setSaving] = useState(false)
   const [modalAlert, setModalAlert] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
 
+  // Print choice (when signed doc exists)
+  const [printChoice, setPrintChoice] = useState<Recibo | null>(null)
+
   // Delete confirm
   const [deleteConfirm, setDeleteConfirm] = useState<Recibo | null>(null)
   const [deleting, setDeleting] = useState(false)
@@ -215,6 +218,10 @@ export default function RecibosPage() {
       })
       const j = await res.json()
       if (j.success) {
+        // Se havia doc assinado, excluir automaticamente pois os dados foram alterados
+        if (editing!.docAssinadoUrl) {
+          await fetch(`/api/recibo/${editing!.id}/doc-assinado`, { method: 'DELETE' }).catch(() => {})
+        }
         showToast('Recibo atualizado com sucesso!')
         setEditModal(false)
         fetchData()
@@ -363,7 +370,7 @@ export default function RecibosPage() {
                       <div className="flex items-center justify-center gap-1">
                         {/* Visualizar / Imprimir */}
                         <button
-                          onClick={() => printRecibo(r)}
+                          onClick={() => r.docAssinadoUrl ? setPrintChoice(r) : printRecibo(r)}
                           title="Visualizar e Imprimir"
                           className="p-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-600 transition-colors"
                         >
@@ -395,6 +402,41 @@ export default function RecibosPage() {
         )}
       </div>
 
+      {/* Print Choice Modal */}
+      {printChoice && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setPrintChoice(null)}>
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm mx-4 p-6 space-y-3" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-1">
+              <h3 className="font-semibold text-navy-800">Qual versão deseja imprimir?</h3>
+              <button onClick={() => setPrintChoice(null)} className="p-1 rounded-lg hover:bg-cream-100 text-navy-400"><X className="w-4 h-4" /></button>
+            </div>
+            <button
+              onClick={() => { printRecibo(printChoice); setPrintChoice(null) }}
+              className="w-full flex items-center gap-3 p-4 rounded-xl border-2 border-indigo-100 hover:border-indigo-300 hover:bg-indigo-50 transition-colors text-left"
+            >
+              <FileText className="w-6 h-6 text-indigo-500 shrink-0" />
+              <div>
+                <p className="font-semibold text-navy-800 text-sm">Documento Original</p>
+                <p className="text-xs text-navy-400 mt-0.5">Versão sem assinatura (gerada pelo sistema)</p>
+              </div>
+            </button>
+            <a
+              href={printChoice.docAssinadoUrl!}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={() => setPrintChoice(null)}
+              className="w-full flex items-center gap-3 p-4 rounded-xl border-2 border-emerald-100 hover:border-emerald-300 hover:bg-emerald-50 transition-colors text-left"
+            >
+              <Printer className="w-6 h-6 text-emerald-600 shrink-0" />
+              <div>
+                <p className="font-semibold text-navy-800 text-sm">Documento Assinado (PDF)</p>
+                <p className="text-xs text-navy-400 mt-0.5">{printChoice.docAssinadoNome ?? 'Versão com assinatura'}</p>
+              </div>
+            </a>
+          </div>
+        </div>
+      )}
+
       {/* Edit Modal */}
       <Modal
         isOpen={editModal}
@@ -404,6 +446,12 @@ export default function RecibosPage() {
         alert={modalAlert}
       >
         <div className="space-y-4">
+          {editing?.docAssinadoUrl && (
+            <div className="flex items-start gap-2 px-3 py-2.5 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-800">
+              <AlertTriangle className="w-4 h-4 text-amber-500 mt-0.5 shrink-0" />
+              <span>Este registro possui um <strong>documento assinado</strong> anexado. Ao salvar as alterações, o documento assinado será <strong>excluído permanentemente</strong>, pois os dados foram modificados.</span>
+            </div>
+          )}
           <div className="grid grid-cols-2 gap-4">
             <DateInput
               label="Data"
