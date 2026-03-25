@@ -62,7 +62,7 @@ export default function AquisicoesPage() {
   }, [])
   useEffect(() => { fetchData() }, [fetchData])
 
-  const filteredEventos = filterEventosByProjeto(eventos as any, form.projetoId).filter((e: Evento) => e.status !== 'encerrado_consolidado')
+  const filteredEventos = filterEventosByProjeto(eventos as any, form.projetoId)
   const fmtMoney = (v: number) => `R$ ${Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
   const fmtDate = (d: string) => d ? new Date(d).toLocaleDateString('pt-BR') : '-'
   const contaLabel = (c: Conta) => `${c.tipo} | Ag ${c.agencia} | Cta ${c.numeroConta} - ${c.banco}`
@@ -197,7 +197,7 @@ export default function AquisicoesPage() {
             <label>Projeto Relacionado</label>
             <select value={form.projetoId} onChange={e => setForm(p => ({ ...p, projetoId: e.target.value, eventoId: '' }))} className="form-input">
               <option value="">Nenhum</option>
-              {projetos.filter(p => p.status !== 'encerrado_consolidado').map(p => <option key={p.id} value={p.id}>{p.nome}</option>)}
+              {projetos.map(p => <option key={p.id} value={p.id}>{p.nome}</option>)}
             </select>
           </div>
 
