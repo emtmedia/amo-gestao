@@ -7,7 +7,7 @@ import {
   Camera, Upload, X, RotateCcw, Check, Send, Loader2, AlertCircle,
   FileText, Image, FileSpreadsheet, File, ChevronLeft, LogOut,
   ScanLine, Paperclip, CheckCircle2, Calendar, AlignLeft, Inbox, Banknote, DollarSign,
-  FileSignature, ClipboardList
+  FileSignature, ClipboardList, RefreshCw
 } from 'lucide-react'
 
 type Step = 'home' | 'doc-assinado-select' | 'camera' | 'preview' | 'form' | 'uploading' | 'success'
@@ -464,6 +464,27 @@ export default function ScanPage() {
     window.location.href = '/login?redirect=/scan'
   }
 
+  // ─── Hard refresh: limpa cache SW e recarrega o app ───
+  async function handleHardRefresh() {
+    try {
+      if ('caches' in window) {
+        const keys = await caches.keys()
+        await Promise.all(keys.map(k => caches.delete(k)))
+      }
+      if ('serviceWorker' in navigator) {
+        const regs = await navigator.serviceWorker.getRegistrations()
+        await Promise.all(regs.map(r => r.unregister()))
+      }
+    } finally {
+      window.location.reload()
+    }
+  }
+
+  // ─── Refresh individual de listas ───
+  function refreshCRs() { setChequeRecibos([]); loadChequeRecibos() }
+  function refreshRecibos() { setRecibos([]); loadRecibos() }
+  function refreshTermos() { setTermos([]); loadTermos() }
+
   // ─── Auth loading ───
   if (authLoading) {
     return (
@@ -488,8 +509,11 @@ export default function ScanPage() {
           <ScanLine size={20} className="text-blue-400" />
           <span className="font-semibold text-sm">AMO Scan</span>
         </div>
-        <div className="flex items-center gap-3">
-          <span className="text-xs text-slate-400 hidden sm:block">{user.nome}</span>
+        <div className="flex items-center gap-1">
+          <span className="text-xs text-slate-400 hidden sm:block mr-2">{user.nome}</span>
+          <button onClick={handleHardRefresh} className="p-1.5 rounded-lg hover:bg-white/10" title="Atualizar app (limpar cache)">
+            <RefreshCw size={16} className="text-slate-400" />
+          </button>
           <button onClick={handleLogout} className="p-1.5 rounded-lg hover:bg-white/10" title="Sair">
             <LogOut size={16} className="text-slate-400" />
           </button>
@@ -606,9 +630,19 @@ export default function ScanPage() {
             {/* Dropdown de registros */}
             {docAssinadoTipo && (
               <div>
-                <label className="text-sm font-medium text-slate-700 mb-2 block">
-                  {docAssinadoTipo === 'recibo' ? 'Recibo de Pagamento' : docAssinadoTipo === 'termo' ? 'Termo de Voluntariado' : 'Cheque-Recibo'} <span className="text-red-500">*</span>
-                </label>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-sm font-medium text-slate-700">
+                    {docAssinadoTipo === 'recibo' ? 'Recibo de Pagamento' : docAssinadoTipo === 'termo' ? 'Termo de Voluntariado' : 'Cheque-Recibo'} <span className="text-red-500">*</span>
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => docAssinadoTipo === 'cheque-recibo' ? refreshCRs() : docAssinadoTipo === 'recibo' ? refreshRecibos() : refreshTermos()}
+                    className="flex items-center gap-1 text-xs text-slate-400 hover:text-slate-600 transition-colors"
+                    title="Atualizar lista"
+                  >
+                    <RefreshCw size={12} /> Atualizar
+                  </button>
+                </div>
                 {(docAssinadoTipo === 'cheque-recibo' ? loadingCRs : loadingDocRecords) ? (
                   <div className="flex items-center gap-2 px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-400">
                     <Loader2 size={14} className="animate-spin" /> Carregando...
@@ -621,7 +655,9 @@ export default function ScanPage() {
                   <select
                     value={selectedDocRecord}
                     onChange={e => setSelectedDocRecord(e.target.value)}
-                    className={`w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm outline-none transition-all ${
+                    className={`w-full px-3.5 py-2.5 border border-slate-200 rounded-xl outline-none transition-all ${
+                      docAssinadoTipo === 'cheque-recibo' ? 'text-xs' : 'text-sm'
+                    } ${
                       docAssinadoTipo === 'recibo'
                         ? 'focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
                         : docAssinadoTipo === 'termo'
@@ -639,7 +675,7 @@ export default function ScanPage() {
                             <option key={t.id} value={t.id}>{t.numero} — {t.nomeVoluntario}</option>
                           ))
                         : chequeRecibos.map(cr => (
-                            <option key={cr.id} value={cr.id}>{cr.numero} — {cr.nomeRecebedor}</option>
+                            <option key={cr.id} value={cr.id}>{cr.numero} — {cr.nomeRecebedor} — R$ {cr.valorConcedido.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</option>
                           ))
                     }
                   </select>
@@ -862,10 +898,20 @@ export default function ScanPage() {
               {destino === 'cheque-recibo' && (
                 <>
                   <div>
-                    <label className="flex items-center gap-1.5 text-sm font-medium text-slate-700 mb-1.5">
-                      <Banknote size={14} className="text-slate-400" />
-                      Cheque-Recibo <span className="text-red-500">*</span>
-                    </label>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="flex items-center gap-1.5 text-sm font-medium text-slate-700">
+                        <Banknote size={14} className="text-slate-400" />
+                        Cheque-Recibo <span className="text-red-500">*</span>
+                      </label>
+                      <button
+                        type="button"
+                        onClick={refreshCRs}
+                        className="flex items-center gap-1 text-xs text-slate-400 hover:text-slate-600 transition-colors"
+                        title="Atualizar lista"
+                      >
+                        <RefreshCw size={12} /> Atualizar
+                      </button>
+                    </div>
                     {loadingCRs ? (
                       <div className="flex items-center gap-2 px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-400">
                         <Loader2 size={14} className="animate-spin" /> Carregando...
@@ -878,7 +924,7 @@ export default function ScanPage() {
                       <select
                         value={selectedCR}
                         onChange={e => setSelectedCR(e.target.value)}
-                        className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-pink-500 focus:border-pink-500 outline-none transition-all"
+                        className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-pink-500 focus:border-pink-500 outline-none transition-all"
                       >
                         <option value="">Selecione um Cheque-Recibo...</option>
                         {chequeRecibos.map(cr => {
