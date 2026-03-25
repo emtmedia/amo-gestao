@@ -39,9 +39,17 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   if (!session) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
 
   try {
-    // Verifica se o CR existe
-    const cr = await prisma.chequeRecibo.findUnique({ where: { id: params.id } })
-    if (!cr) return NextResponse.json({ error: 'Cheque-Recibo não encontrado' }, { status: 404 })
+    // Verifica se o CR existe e se já possui documento assinado
+    const crRows = await prisma.$queryRaw<Array<{ id: string; numero: string; docAssinadoUrl: string | null }>>`
+      SELECT id, numero, "docAssinadoUrl" FROM "ChequeRecibo" WHERE id = ${params.id}
+    `
+    if (!crRows.length) return NextResponse.json({ error: 'Cheque-Recibo não encontrado' }, { status: 404 })
+    const cr = crRows[0]
+    if (!cr.docAssinadoUrl) {
+      return NextResponse.json({
+        error: 'É necessário anexar o CR assinado antes de incluir documentos fiscais. Use o AMO Scan ou o botão de doc. assinado na listagem.'
+      }, { status: 400 })
+    }
 
     const formData = await req.formData()
     const file          = formData.get('file') as File | null

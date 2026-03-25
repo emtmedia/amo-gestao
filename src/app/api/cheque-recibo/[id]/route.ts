@@ -65,6 +65,18 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
 
 export async function PATCH(_: NextRequest, { params }: { params: { id: string } }) {
   try {
+    // Verifica se CR possui documento assinado antes de arquivar
+    const crRows = await prisma.$queryRaw<Array<{ docAssinadoUrl: string | null }>>`
+      SELECT "docAssinadoUrl" FROM "ChequeRecibo" WHERE id = ${params.id}
+    `
+    if (!crRows.length) return NextResponse.json({ success: false, error: 'Cheque-Recibo não encontrado' }, { status: 404 })
+    if (!crRows[0].docAssinadoUrl) {
+      return NextResponse.json({
+        success: false,
+        error: 'É necessário anexar o CR assinado antes de arquivar. Use o AMO Scan ou o botão de doc. assinado na listagem.'
+      }, { status: 400 })
+    }
+
     await prisma.$executeRaw`
       UPDATE "ChequeRecibo"
       SET "arquivado" = true, "arquivadoEm" = NOW(), "updatedAt" = NOW()

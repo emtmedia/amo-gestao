@@ -83,7 +83,7 @@ export default function ScanPage() {
   const [successInfo, setSuccessInfo]   = useState<{ destino: Destino | 'doc-assinado'; crNumero?: string; assinado?: boolean; docNumero?: string } | null>(null)
   // Doc-assinado mode (Recibo / Termo)
   const [docAssinadoMode, setDocAssinadoMode] = useState(false)
-  const [docAssinadoTipo, setDocAssinadoTipo] = useState<'recibo' | 'termo' | ''>('')
+  const [docAssinadoTipo, setDocAssinadoTipo] = useState<'recibo' | 'termo' | 'cheque-recibo' | ''>('')
   const [recibos, setRecibos]               = useState<ReciboItem[]>([])
   const [termos, setTermos]                 = useState<TermoItem[]>([])
   const [loadingDocRecords, setLoadingDocRecords] = useState(false)
@@ -301,11 +301,12 @@ export default function ScanPage() {
     finally { setLoadingDocRecords(false) }
   }
 
-  function handleDocAssinadoTipoChange(tipo: 'recibo' | 'termo') {
+  function handleDocAssinadoTipoChange(tipo: 'recibo' | 'termo' | 'cheque-recibo') {
     setDocAssinadoTipo(tipo)
     setSelectedDocRecord('')
     if (tipo === 'recibo' && recibos.length === 0) loadRecibos()
     if (tipo === 'termo' && termos.length === 0) loadTermos()
+    if (tipo === 'cheque-recibo' && chequeRecibos.length === 0) loadChequeRecibos()
   }
 
   function handleDestinoChange(d: Destino) {
@@ -368,7 +369,9 @@ export default function ScanPage() {
         fd.append('file', file)
         const endpoint = docAssinadoTipo === 'recibo'
           ? `/api/recibo/${selectedDocRecord}/doc-assinado`
-          : `/api/termo-voluntariado/${selectedDocRecord}/doc-assinado`
+          : docAssinadoTipo === 'termo'
+            ? `/api/termo-voluntariado/${selectedDocRecord}/doc-assinado`
+            : `/api/cheque-recibo/${selectedDocRecord}/doc-assinado`
         const res = await fetch(endpoint, { method: 'POST', body: fd })
         const data = await res.json()
         if (data.success) {
@@ -545,7 +548,7 @@ export default function ScanPage() {
               </div>
               <div className="text-left">
                 <p className="font-semibold text-slate-800">Enviar Doc Assinado</p>
-                <p className="text-xs text-slate-500 mt-0.5">Recibo de Pagamento ou Voluntariado</p>
+                <p className="text-xs text-slate-500 mt-0.5">Recibo, Voluntariado ou Cheque-Recibo</p>
               </div>
             </button>
 
@@ -563,7 +566,7 @@ export default function ScanPage() {
             {/* Tipo de registro */}
             <div>
               <label className="text-sm font-medium text-slate-700 mb-2 block">Tipo de registro <span className="text-red-500">*</span></label>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="flex flex-col gap-2">
                 <button type="button"
                   onClick={() => handleDocAssinadoTipoChange('recibo')}
                   className={`flex items-center gap-2 p-3 rounded-xl border-2 text-sm font-medium transition-all ${
@@ -573,7 +576,7 @@ export default function ScanPage() {
                   }`}
                 >
                   <Banknote size={16} />
-                  Recibo
+                  Recibo de Pagamento
                 </button>
                 <button type="button"
                   onClick={() => handleDocAssinadoTipoChange('termo')}
@@ -584,7 +587,18 @@ export default function ScanPage() {
                   }`}
                 >
                   <ClipboardList size={16} />
-                  Voluntariado
+                  Termo de Voluntariado
+                </button>
+                <button type="button"
+                  onClick={() => handleDocAssinadoTipoChange('cheque-recibo')}
+                  className={`flex items-center gap-2 p-3 rounded-xl border-2 text-sm font-medium transition-all ${
+                    docAssinadoTipo === 'cheque-recibo'
+                      ? 'border-pink-500 bg-pink-50 text-pink-700'
+                      : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
+                  }`}
+                >
+                  <FileSignature size={16} />
+                  Cheque-Recibo
                 </button>
               </div>
             </div>
@@ -593,13 +607,13 @@ export default function ScanPage() {
             {docAssinadoTipo && (
               <div>
                 <label className="text-sm font-medium text-slate-700 mb-2 block">
-                  {docAssinadoTipo === 'recibo' ? 'Recibo de Pagamento' : 'Termo de Voluntariado'} <span className="text-red-500">*</span>
+                  {docAssinadoTipo === 'recibo' ? 'Recibo de Pagamento' : docAssinadoTipo === 'termo' ? 'Termo de Voluntariado' : 'Cheque-Recibo'} <span className="text-red-500">*</span>
                 </label>
-                {loadingDocRecords ? (
+                {(docAssinadoTipo === 'cheque-recibo' ? loadingCRs : loadingDocRecords) ? (
                   <div className="flex items-center gap-2 px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-400">
                     <Loader2 size={14} className="animate-spin" /> Carregando...
                   </div>
-                ) : (docAssinadoTipo === 'recibo' ? recibos : termos).length === 0 ? (
+                ) : (docAssinadoTipo === 'recibo' ? recibos : docAssinadoTipo === 'termo' ? termos : chequeRecibos).length === 0 ? (
                   <div className="px-3.5 py-2.5 border border-amber-200 bg-amber-50 rounded-xl text-sm text-amber-700">
                     Nenhum registro encontrado
                   </div>
@@ -607,16 +621,26 @@ export default function ScanPage() {
                   <select
                     value={selectedDocRecord}
                     onChange={e => setSelectedDocRecord(e.target.value)}
-                    className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-all"
+                    className={`w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm outline-none transition-all ${
+                      docAssinadoTipo === 'recibo'
+                        ? 'focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
+                        : docAssinadoTipo === 'termo'
+                          ? 'focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500'
+                          : 'focus:ring-2 focus:ring-pink-500 focus:border-pink-500'
+                    }`}
                   >
                     <option value="">Selecione...</option>
                     {docAssinadoTipo === 'recibo'
                       ? recibos.map(r => (
                           <option key={r.id} value={r.id}>{r.numero} — {r.nomeRecebedor}</option>
                         ))
-                      : termos.map(t => (
-                          <option key={t.id} value={t.id}>{t.numero} — {t.nomeVoluntario}</option>
-                        ))
+                      : docAssinadoTipo === 'termo'
+                        ? termos.map(t => (
+                            <option key={t.id} value={t.id}>{t.numero} — {t.nomeVoluntario}</option>
+                          ))
+                        : chequeRecibos.map(cr => (
+                            <option key={cr.id} value={cr.id}>{cr.numero} — {cr.nomeRecebedor}</option>
+                          ))
                     }
                   </select>
                 )}
@@ -733,16 +757,36 @@ export default function ScanPage() {
             <div className="space-y-4">
               {/* Resumo do registro quando em modo doc-assinado */}
               {docAssinadoMode && (
-                <div className="flex items-center gap-3 bg-emerald-50 border border-emerald-200 rounded-xl p-3">
-                  <CheckCircle2 size={18} className="text-emerald-600 shrink-0" />
+                <div className={`flex items-center gap-3 rounded-xl p-3 border ${
+                  docAssinadoTipo === 'recibo'
+                    ? 'bg-blue-50 border-blue-200'
+                    : docAssinadoTipo === 'termo'
+                      ? 'bg-emerald-50 border-emerald-200'
+                      : 'bg-pink-50 border-pink-200'
+                }`}>
+                  <CheckCircle2 size={18} className={`shrink-0 ${
+                    docAssinadoTipo === 'recibo' ? 'text-blue-600'
+                    : docAssinadoTipo === 'termo' ? 'text-emerald-600'
+                    : 'text-pink-600'
+                  }`} />
                   <div>
-                    <p className="text-xs font-medium text-emerald-700">
-                      {docAssinadoTipo === 'recibo' ? 'Recibo de Pagamento' : 'Termo de Voluntariado'}
+                    <p className={`text-xs font-medium ${
+                      docAssinadoTipo === 'recibo' ? 'text-blue-700'
+                      : docAssinadoTipo === 'termo' ? 'text-emerald-700'
+                      : 'text-pink-700'
+                    }`}>
+                      {docAssinadoTipo === 'recibo' ? 'Recibo de Pagamento' : docAssinadoTipo === 'termo' ? 'Termo de Voluntariado' : 'Cheque-Recibo'}
                     </p>
-                    <p className="text-sm font-semibold text-emerald-800">
+                    <p className={`text-sm font-semibold ${
+                      docAssinadoTipo === 'recibo' ? 'text-blue-800'
+                      : docAssinadoTipo === 'termo' ? 'text-emerald-800'
+                      : 'text-pink-800'
+                    }`}>
                       {docAssinadoTipo === 'recibo'
                         ? (() => { const r = recibos.find(x => x.id === selectedDocRecord); return r ? `${r.numero} — ${r.nomeRecebedor}` : '' })()
-                        : (() => { const t = termos.find(x => x.id === selectedDocRecord); return t ? `${t.numero} — ${t.nomeVoluntario}` : '' })()
+                        : docAssinadoTipo === 'termo'
+                          ? (() => { const t = termos.find(x => x.id === selectedDocRecord); return t ? `${t.numero} — ${t.nomeVoluntario}` : '' })()
+                          : (() => { const c = chequeRecibos.find(x => x.id === selectedDocRecord); return c ? `${c.numero} — ${c.nomeRecebedor}` : '' })()
                       }
                     </p>
                   </div>

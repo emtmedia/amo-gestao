@@ -981,10 +981,14 @@ export default function ChequeReciboPage() {
                   </button>
                   {saldoZero && !cr.arquivado && (
                     <button
-                      onClick={() => handleArquivar(cr.id)}
+                      onClick={() => cr.docAssinadoUrl ? handleArquivar(cr.id) : showToast('Anexe o CR assinado antes de arquivar.', 'error')}
                       disabled={arquivando === cr.id}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-sm font-medium transition-colors disabled:opacity-50"
-                      title="Arquivar"
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 ${
+                        cr.docAssinadoUrl
+                          ? 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700'
+                          : 'bg-slate-50 text-slate-400 cursor-not-allowed'
+                      }`}
+                      title={cr.docAssinadoUrl ? 'Arquivar' : 'Anexe o CR assinado antes de arquivar'}
                     >
                       <Archive className="w-4 h-4" /> {arquivando === cr.id ? 'Arquivando...' : 'Arquivar'}
                     </button>
@@ -1001,6 +1005,12 @@ export default function ChequeReciboPage() {
 
               {/* Anexos section */}
               <div className="mt-3 border-t border-cream-200 pt-3">
+                {!cr.docAssinadoUrl && !cr.arquivado && (
+                  <p className="flex items-center gap-1.5 text-xs text-amber-600 mb-2">
+                    <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                    Anexe o CR assinado para liberar o envio de documentos fiscais.
+                  </p>
+                )}
                 <button
                   onClick={() => toggleAnexos(cr.id)}
                   className="flex items-center gap-2 text-xs font-medium text-navy-500 hover:text-navy-700 transition-colors"
