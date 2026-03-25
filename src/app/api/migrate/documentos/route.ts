@@ -47,6 +47,7 @@ export async function POST() {
       { nome: 'Documentos de Bombeiro', cor: '#EA580C', icone: 'ShieldAlert' },
       { nome: 'Documentos de Prefeitura', cor: '#65A30D', icone: 'Building2' },
       { nome: 'Financeiro e Contábil', cor: '#0D9488', icone: 'BarChart2' },
+      { nome: 'Logs de Auditoria', cor: '#4B5563', icone: 'ClipboardList' },
       { nome: 'Outros', cor: '#6B7280', icone: 'FolderOpen' },
     ]
     for (const cat of cats) {

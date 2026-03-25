@@ -7,9 +7,9 @@ export const dynamic = 'force-dynamic'
 export async function GET() {
   try {
     const session = await getSession()
-    const isAdmin = session?.role === 'admin'
+    const isAdmin = ['admin', 'superadmin'].includes(session?.role ?? '')
 
-    // Usuários comuns (role !== 'admin') não veem documentos restritos
+    // Usuários comuns não veem documentos restritos
     const items = await prisma.documentoAMO.findMany({
       where: isAdmin ? {} : { acessoRestrito: false },
       include: { categoria: true },
@@ -22,11 +22,11 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   try {
     const session = await getSession()
-    const isAdmin = session?.role === 'admin'
+    const isAdmin = ['admin', 'superadmin'].includes(session?.role ?? '')
 
     const body = await req.json()
 
-    // Somente admins podem criar documentos com acessoRestrito = true
+    // Somente admins/superadmin podem criar documentos com acessoRestrito = true
     const acessoRestrito = isAdmin ? (body.acessoRestrito || false) : false
 
     const item = await prisma.documentoAMO.create({

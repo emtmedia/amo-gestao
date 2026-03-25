@@ -34,7 +34,7 @@ export async function POST() {
       return NextResponse.json({ success: false, error: 'Acesso restrito ao SuperAdmin.' }, { status: 403 })
     }
 
-    // 1. Busca todos os logs
+    // 1. Busca todos os logs sem limite
     const logs = await prisma.$queryRaw<{
       id: string; userId: string | null; userName: string; action: string
       entity: string; entityId: string | null; details: string | null; createdAt: Date
@@ -44,9 +44,9 @@ export async function POST() {
       return NextResponse.json({ success: false, error: 'Nenhum log para exportar.' })
     }
 
-    // 2. Gera CSV
+    // 2. Gera CSV com BOM UTF-8
     const csv = buildCsv(logs)
-    const csvBuffer = Buffer.from('\uFEFF' + csv, 'utf-8') // BOM para compatibilidade Excel
+    const csvBuffer = Buffer.from('\uFEFF' + csv, 'utf-8')
 
     // 3. Nome do arquivo: YYYY-MM-DD-hh.mm.ss-LogsBckp.csv
     const now = new Date()
@@ -57,47 +57,53 @@ export async function POST() {
     await ensureBucketExists()
     const { url, path } = await uploadFile(csvBuffer, fileName, 'text/csv', 'audit-backups')
 
-    // 5. Busca uma categoria para o documento (preferência: Financeiro → Outros → primeira disponível)
+    // 5. Garante que a categoria "Logs de Auditoria" existe (cria se necessário)
     type CatRow = { id: string; nome: string }
-    const cats = await prisma.$queryRaw<CatRow[]>`
-      SELECT id, nome FROM "CategoriaDocumento" ORDER BY nome ASC LIMIT 20
+    let cats = await prisma.$queryRaw<CatRow[]>`
+      SELECT id, nome FROM "CategoriaDocumento" ORDER BY nome ASC
     `
-    const cat =
-      cats.find(c => c.nome.toLowerCase().includes('financeiro')) ||
-      cats.find(c => c.nome.toLowerCase().includes('outros')) ||
-      cats[0]
+    let cat = cats.find(c => c.nome === 'Logs de Auditoria')
+      ?? cats.find(c => c.nome.toLowerCase().includes('financeiro'))
+      ?? cats.find(c => c.nome.toLowerCase().includes('outros'))
+      ?? cats[0]
 
     if (!cat) {
-      return NextResponse.json({ success: false, error: 'Nenhuma categoria de documento encontrada. Execute a migração de documentos primeiro.' }, { status: 500 })
+      // Cria a categoria se a tabela ainda não tem nenhuma
+      await prisma.$executeRawUnsafe(
+        `INSERT INTO "CategoriaDocumento" ("id","nome","cor","icone","createdAt","updatedAt") VALUES (gen_random_uuid()::text,'Logs de Auditoria','#4B5563','ClipboardList',NOW(),NOW()) ON CONFLICT ("nome") DO NOTHING`
+      )
+      const updated = await prisma.$queryRaw<CatRow[]>`SELECT id, nome FROM "CategoriaDocumento" WHERE nome = 'Logs de Auditoria'`
+      cat = updated[0]
     }
 
-    // 6. Cria registro na Biblioteca de Documentos com Acesso Restrito
-    await prisma.$executeRawUnsafe(`
-      INSERT INTO "DocumentoAMO" (
-        id, titulo, descricao, "categoriaId", tags, "nomeArquivo", "tipoArquivo",
-        "tamanhoArquivo", "urlArquivo", "pathArquivo", versao,
-        "acessoRestrito", "responsavel", "updatedAt", "createdAt"
-      ) VALUES (
-        gen_random_uuid(),
-        $1, $2, $3, NULL, $4, 'text/csv',
-        $5, $6, $7, '1.0',
-        true, $8, NOW(), NOW()
-      )
-    `,
-      `Backup de Logs — ${fileName}`,
-      `Backup automático gerado em ${now.toLocaleDateString('pt-BR')} às ${now.toLocaleTimeString('pt-BR')} por ${session.nome}. Total: ${logs.length} registros.`,
-      cat.id,
-      fileName,
-      csvBuffer.length,
-      url,
-      path,
-      session.nome,
-    )
+    if (!cat) {
+      return NextResponse.json({ success: false, error: 'Não foi possível determinar a categoria do documento.' }, { status: 500 })
+    }
+
+    // 6. Cria registro na Biblioteca de Documentos via Prisma ORM
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (prisma.documentoAMO as any).create({
+      data: {
+        id: crypto.randomUUID(),
+        titulo: `Backup de Logs — ${fileName}`,
+        descricao: `Backup automático gerado em ${now.toLocaleDateString('pt-BR')} às ${now.toLocaleTimeString('pt-BR')} por ${session.nome}. Total: ${logs.length} registros.`,
+        categoriaId: cat.id,
+        nomeArquivo: fileName,
+        tipoArquivo: 'text/csv',
+        tamanhoArquivo: csvBuffer.length,
+        urlArquivo: url,
+        pathArquivo: path,
+        versao: '1.0',
+        acessoRestrito: true,
+        responsavel: session.nome,
+        updatedAt: new Date(),
+      },
+    })
 
     // 7. Exclui todos os logs
-    await prisma.$executeRawUnsafe(`DELETE FROM "AuditLog"`)
+    await prisma.$executeRaw`DELETE FROM "AuditLog"`
 
-    // 8. Registra a ação de limpeza (novo log após a limpeza)
+    // 8. Registra a própria ação de limpeza no novo log
     await prisma.$executeRawUnsafe(
       `INSERT INTO "AuditLog" ("id","userId","userName","action","entity","entityId","details","createdAt") VALUES (gen_random_uuid(),$1,$2,'EXCLUIR','AuditLog',NULL,$3,NOW())`,
       session.userId,
@@ -108,6 +114,7 @@ export async function POST() {
     return NextResponse.json({ success: true, fileName, totalExportados: logs.length })
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error)
+    console.error('[audit-log/clear]', msg)
     return NextResponse.json({ success: false, error: msg }, { status: 500 })
   }
 }
