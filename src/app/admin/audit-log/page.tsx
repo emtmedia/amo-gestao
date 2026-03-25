@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect, useCallback } from 'react'
-import { ClipboardList, RefreshCw, Filter } from 'lucide-react'
+import { ClipboardList, RefreshCw, Filter, Trash2, Download } from 'lucide-react'
 
 interface Log {
   id: string; userId: string | null; userName: string; action: string
@@ -11,6 +11,7 @@ const ACTION_COLORS: Record<string, string> = {
   CRIAR: 'bg-green-100 text-green-800',
   EDITAR: 'bg-blue-100 text-blue-800',
   EXCLUIR: 'bg-red-100 text-red-800',
+  ARQUIVAR: 'bg-emerald-100 text-emerald-800',
   'CONFIGURAÇÃO': 'bg-purple-100 text-purple-800',
   LOGIN: 'bg-emerald-100 text-emerald-800',
   LOGOUT: 'bg-gray-100 text-gray-800',
@@ -21,6 +22,16 @@ export default function AuditLogPage() {
   const [loading, setLoading] = useState(true)
   const [entityFilter, setEntityFilter] = useState('')
   const [entities, setEntities] = useState<string[]>([])
+  const [currentRole, setCurrentRole] = useState('')
+  const [clearing, setClearing] = useState(false)
+  const [confirmClear, setConfirmClear] = useState(false)
+  const [toast, setToast] = useState<{ msg: string; type: 'success' | 'error' } | null>(null)
+
+  const showToast = (msg: string, type: 'success' | 'error' = 'success') => {
+    setToast({ msg, type }); setTimeout(() => setToast(null), 5000)
+  }
+
+  const isSuperAdmin = currentRole.toLowerCase() === 'superadmin'
 
   const fetchLogs = useCallback(async () => {
     setLoading(true)
@@ -38,7 +49,30 @@ export default function AuditLogPage() {
     } finally { setLoading(false) }
   }, [entityFilter])
 
+  useEffect(() => {
+    fetch('/api/auth/me').then(r => r.json()).then(j => { if (j.usuario?.role) setCurrentRole(j.usuario.role) }).catch(() => {})
+  }, [])
+
   useEffect(() => { fetchLogs() }, [fetchLogs])
+
+  const handleClearLog = async () => {
+    setClearing(true)
+    setConfirmClear(false)
+    try {
+      const r = await fetch('/api/audit-log/clear', { method: 'POST' })
+      const j = await r.json()
+      if (j.success) {
+        showToast(`✓ ${j.totalExportados} registros exportados para "${j.fileName}" e salvos na Biblioteca de Documentos.`)
+        fetchLogs()
+      } else {
+        showToast(j.error || 'Erro ao limpar log.', 'error')
+      }
+    } catch {
+      showToast('Erro de conexão.', 'error')
+    } finally {
+      setClearing(false)
+    }
+  }
 
   const fmtDate = (d: string) => {
     const dt = new Date(d)
@@ -47,6 +81,12 @@ export default function AuditLogPage() {
 
   return (
     <div className="page-container">
+      {toast && (
+        <div className={`fixed top-4 right-4 z-[9999] px-4 py-3 rounded-xl shadow-lg text-sm font-medium max-w-sm ${toast.type === 'success' ? 'bg-green-50 text-green-800 border border-green-200' : 'bg-red-50 text-red-800 border border-red-200'}`}>
+          {toast.msg}
+        </div>
+      )}
+
       <div className="page-header">
         <div className="flex items-center gap-3">
           <ClipboardList className="w-7 h-7 text-navy-700" />
@@ -64,6 +104,19 @@ export default function AuditLogPage() {
             </select>
           </div>
           <button onClick={fetchLogs} className="btn-secondary text-sm py-1.5"><RefreshCw className="w-4 h-4" /></button>
+          <button
+            onClick={() => isSuperAdmin && setConfirmClear(true)}
+            disabled={!isSuperAdmin || clearing}
+            title={isSuperAdmin ? 'Exportar logs para CSV e limpar registros' : 'Disponível apenas para SuperAdmin'}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors
+              ${isSuperAdmin
+                ? 'bg-red-50 hover:bg-red-100 text-red-700 border border-red-200'
+                : 'bg-gray-100 text-gray-400 border border-gray-200 cursor-not-allowed opacity-50'
+              }`}
+          >
+            <Trash2 className="w-4 h-4" />
+            {clearing ? 'Processando...' : 'Limpar Log'}
+          </button>
         </div>
       </div>
 
@@ -105,6 +158,42 @@ export default function AuditLogPage() {
           </div>
         )}
       </div>
+      {/* Confirm clear modal */}
+      {confirmClear && (
+        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl p-6 space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center shrink-0">
+                <Download className="w-5 h-5 text-red-600" />
+              </div>
+              <div>
+                <h3 className="font-bold text-navy-800 text-lg">Limpar Log de Auditoria</h3>
+                <p className="text-sm text-navy-400">Esta ação não pode ser desfeita</p>
+              </div>
+            </div>
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-sm text-amber-800 space-y-1">
+              <p>• Todos os <strong>{logs.length} registros</strong> serão exportados para um arquivo <strong>CSV</strong>.</p>
+              <p>• O arquivo será salvo na <strong>Biblioteca de Documentos</strong> com acesso restrito.</p>
+              <p>• Os logs serão <strong>excluídos permanentemente</strong> do banco de dados.</p>
+            </div>
+            <div className="flex gap-3 pt-1">
+              <button
+                onClick={() => setConfirmClear(false)}
+                className="flex-1 btn-secondary"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleClearLog}
+                className="flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white font-semibold text-sm transition-colors"
+              >
+                <Trash2 className="w-4 h-4" />
+                Exportar e Limpar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
