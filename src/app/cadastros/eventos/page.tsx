@@ -56,6 +56,9 @@ export default function EventosPage() {
   const [userRole, setUserRole] = useState<string>('user')
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('todos')
   const [pendingEdit, setPendingEdit] = useState<Evento | null>(null)
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null)
+  const [showDeletePasswordModal, setShowDeletePasswordModal] = useState(false)
+  const [deleting, setDeleting] = useState(false)
   const [showPasswordModal, setShowPasswordModal] = useState(false)
 
   const showToast = (msg: string, type: 'success' | 'error' = 'success') => {
@@ -147,9 +150,33 @@ export default function EventosPage() {
     } finally { setSaving(false) }
   }
 
-  const handleDelete = async (id: string) => {
-    try { const r = await fetch(`/api/eventos/${id}`, { method: 'DELETE' }); const j = await r.json(); if (j.success) { showToast('Evento removido!'); setDeleteConfirm(null); fetchData() } else showToast('Erro ao remover', 'error') }
-    catch { showToast('Erro ao remover', 'error') }
+  const isAdmin = userRole === 'admin' || userRole === 'superadmin'
+
+  const openDelete = (id: string) => {
+    if (!isAdmin) { showToast('Apenas Admin ou SuperAdmin podem excluir eventos', 'error'); return }
+    setPendingDeleteId(id)
+    setShowDeletePasswordModal(true)
+  }
+
+  const handleDeleteConfirmed = async () => {
+    if (!pendingDeleteId) return
+    setShowDeletePasswordModal(false)
+    setDeleting(true)
+    try {
+      const r = await fetch(`/api/eventos/${pendingDeleteId}`, { method: 'DELETE' })
+      const j = await r.json()
+      if (j.success) {
+        showToast('Evento excluído! Extrato salvo na Biblioteca de Documentos com Acesso Restrito.')
+        fetchData()
+      } else {
+        showToast(j.error || 'Erro ao excluir', 'error')
+      }
+    } catch {
+      showToast('Erro ao excluir evento', 'error')
+    } finally {
+      setDeleting(false)
+      setPendingDeleteId(null)
+    }
   }
 
   const inp = (key: keyof typeof emptyForm, label: string, required = false, type = 'text', placeholder = '') => (
@@ -221,7 +248,7 @@ export default function EventosPage() {
               )},
             ]}
             onEdit={openEdit}
-            onDelete={(row) => setDeleteConfirm(String(row.id))}
+            onDelete={isAdmin ? (row) => openDelete(String(row.id)) : undefined}
             searchKeys={['nome', 'responsavel']}
             rowClassName={rowClassName}
           />
@@ -298,14 +325,6 @@ export default function EventosPage() {
         </div>
       </Modal>
 
-      <Modal isOpen={!!deleteConfirm} onClose={() => setDeleteConfirm(null)} title="Confirmar Exclusão" size="sm">
-        <p className="text-navy-600">Tem certeza que deseja excluir este evento?</p>
-        <div className="flex justify-end gap-3 mt-6">
-          <button onClick={() => setDeleteConfirm(null)} className="btn-secondary">Cancelar</button>
-          <button onClick={() => deleteConfirm && handleDelete(deleteConfirm)} className="btn-danger">Excluir</button>
-        </div>
-      </Modal>
-
       <PasswordConfirmModal
         isOpen={showPasswordModal}
         title="Editar Evento Consolidado"
@@ -320,6 +339,24 @@ export default function EventosPage() {
           setPendingEdit(null)
         }}
       />
+
+      <PasswordConfirmModal
+        isOpen={showDeletePasswordModal}
+        title="Confirmar Exclusão de Evento"
+        description="Esta ação é irreversível. Um extrato completo será salvo na Biblioteca de Documentos antes da exclusão. Confirme sua senha para prosseguir."
+        onConfirmed={handleDeleteConfirmed}
+        onCancel={() => { setShowDeletePasswordModal(false); setPendingDeleteId(null) }}
+      />
+
+      {deleting && (
+        <div className="fixed inset-0 z-[9998] bg-black/40 flex items-center justify-center">
+          <div className="bg-white rounded-2xl px-8 py-6 shadow-2xl text-center space-y-2">
+            <div className="w-8 h-8 border-4 border-navy-600 border-t-transparent rounded-full animate-spin mx-auto" />
+            <p className="text-navy-700 font-medium text-sm">Gerando extrato e excluindo evento...</p>
+            <p className="text-navy-400 text-xs">Isso pode levar alguns segundos.</p>
+          </div>
+        </div>
+      )}
 
       <BlockErrorModal error={blockError} onClose={() => setBlockError(null)} />
     </div>

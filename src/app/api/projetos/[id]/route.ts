@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { logAudit } from '@/lib/audit'
 import prisma from '@/lib/prisma'
+import { getSession } from '@/lib/session'
+import { generateProjetoExtrato } from '@/lib/extrato-pdf'
 
 export async function GET(_: NextRequest, { params }: { params: { id: string } }) {
   try {
@@ -28,26 +30,45 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
 
 export async function DELETE(_: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const [c0, c1, c2] = await prisma.$transaction([
-      prisma.evento.count({ where: { projetoVinculadoId: params.id } }),
-      prisma.voluntarioProjeto.count({ where: { projetoId: params.id } }),
-      prisma.consolidacaoProjeto.count({ where: { projetoId: params.id } }),
-    ])
-    const total = c0 + c1 + c2
-    if (total > 0) {
-      const detail =
-        (c0 > 0 ? `\n• Eventos vinculados: ${c0}` : '') +
-        (c1 > 0 ? `\n• Voluntários no projeto: ${c1}` : '') +
-        (c2 > 0 ? `\n• Consolidações: ${c2}` : '')
-      return NextResponse.json({
-        success: false,
-        error: `Este projeto está em uso em ${total} registro(s) e não pode ser excluído.${detail}\n\nRemova os vínculos antes de excluir este projeto.`
-      }, { status: 400 })
+    // 1. Verificar permissão
+    const session = await getSession()
+    if (!session || !['admin', 'superadmin'].includes(session.role)) {
+      return NextResponse.json(
+        { success: false, error: 'Acesso negado. Apenas Admin ou SuperAdmin podem excluir projetos.' },
+        { status: 403 }
+      )
     }
+
+    // 2. Verificar existência
+    const projeto = await prisma.projetoFilantropia.findUnique({ where: { id: params.id } })
+    if (!projeto) return NextResponse.json({ success: false, error: 'Projeto não encontrado' }, { status: 404 })
+
+    // 3. Gerar extrato PDF e salvar na Biblioteca de Documentos
+    const { documentoId, titulo } = await generateProjetoExtrato(params.id, session.nome)
+
+    // 4. Cascade delete em ordem (respeita FKs)
+    // 4a. Para cada evento vinculado: excluir voluntários, consolidação e receitas do evento
+    const eventos = await prisma.evento.findMany({
+      where: { projetoVinculadoId: params.id },
+      select: { id: true },
+    })
+    for (const ev of eventos) {
+      await prisma.voluntarioEvento.deleteMany({ where: { eventoId: ev.id } })
+      await prisma.consolidacaoEvento.deleteMany({ where: { eventoId: ev.id } })
+      await prisma.receitaEvento.deleteMany({ where: { eventoId: ev.id } })
+    }
+    // 4b. Excluir eventos vinculados
+    await prisma.evento.deleteMany({ where: { projetoVinculadoId: params.id } })
+    // 4c. Excluir voluntários e consolidação do projeto
+    await prisma.voluntarioProjeto.deleteMany({ where: { projetoId: params.id } })
+    await prisma.consolidacaoProjeto.deleteMany({ where: { projetoId: params.id } })
+    // 4d. Excluir o projeto
     await prisma.projetoFilantropia.delete({ where: { id: params.id } })
-    await logAudit("EXCLUIR", "Projeto", params.id)
-    return NextResponse.json({ success: true })
+
+    await logAudit('EXCLUIR', 'Projeto', params.id, `Extrato gerado: ${titulo} (ID: ${documentoId})`)
+    return NextResponse.json({ success: true, documentoId, titulo })
   } catch (error) {
-    return NextResponse.json({ success: false, error: String(error) }, { status: 500 })
+    const msg = error instanceof Error ? error.message : String(error)
+    return NextResponse.json({ success: false, error: msg }, { status: 500 })
   }
 }

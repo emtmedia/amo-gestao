@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { logAudit } from '@/lib/audit'
 import prisma from '@/lib/prisma'
+import { getSession } from '@/lib/session'
+import { generateEventoExtrato } from '@/lib/extrato-pdf'
 
 export async function GET(_: NextRequest, { params }: { params: { id: string } }) {
   try {
@@ -36,10 +38,8 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
       updatedAt:               new Date(),
     }
 
-    // Remove undefined fields
     Object.keys(data).forEach(k => { if (data[k] === undefined) delete data[k] })
 
-    // Handle relation field
     if (body.projetoVinculadoId) {
       data.projeto = { connect: { id: body.projetoVinculadoId } }
     } else if (body.projetoVinculadoId === null || body.projetoVinculadoId === '') {
@@ -56,26 +56,32 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
 
 export async function DELETE(_: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const [c0, c1, c2] = await prisma.$transaction([
-      prisma.voluntarioEvento.count({ where: { eventoId: params.id } }),
-      prisma.consolidacaoEvento.count({ where: { eventoId: params.id } }),
-      prisma.receitaEvento.count({ where: { eventoId: params.id } }),
-    ])
-    const total = c0 + c1 + c2
-    if (total > 0) {
-      const detail =
-        (c0 > 0 ? `\n• Voluntários no evento: ${c0}` : '') +
-        (c1 > 0 ? `\n• Consolidações do evento: ${c1}` : '') +
-        (c2 > 0 ? `\n• Receitas de Eventos: ${c2}` : '')
-      return NextResponse.json({
-        success: false,
-        error: `Este evento está em uso em ${total} registro(s) e não pode ser excluído.${detail}\n\nRemova os vínculos antes de excluir este evento.`
-      }, { status: 400 })
+    // 1. Verificar permissão
+    const session = await getSession()
+    if (!session || !['admin', 'superadmin'].includes(session.role)) {
+      return NextResponse.json(
+        { success: false, error: 'Acesso negado. Apenas Admin ou SuperAdmin podem excluir eventos.' },
+        { status: 403 }
+      )
     }
+
+    // 2. Verificar existência
+    const evento = await prisma.evento.findUnique({ where: { id: params.id } })
+    if (!evento) return NextResponse.json({ success: false, error: 'Evento não encontrado' }, { status: 404 })
+
+    // 3. Gerar extrato PDF e salvar na Biblioteca de Documentos
+    const { documentoId, titulo } = await generateEventoExtrato(params.id, session.nome)
+
+    // 4. Cascade delete em ordem (respeita FKs)
+    await prisma.voluntarioEvento.deleteMany({ where: { eventoId: params.id } })
+    await prisma.consolidacaoEvento.deleteMany({ where: { eventoId: params.id } })
+    await prisma.receitaEvento.deleteMany({ where: { eventoId: params.id } })
     await prisma.evento.delete({ where: { id: params.id } })
-    await logAudit("EXCLUIR", "Evento", params.id)
-    return NextResponse.json({ success: true })
+
+    await logAudit('EXCLUIR', 'Evento', params.id, `Extrato gerado: ${titulo} (ID: ${documentoId})`)
+    return NextResponse.json({ success: true, documentoId, titulo })
   } catch (error) {
-    return NextResponse.json({ success: false, error: String(error) }, { status: 500 })
+    const msg = error instanceof Error ? error.message : String(error)
+    return NextResponse.json({ success: false, error: msg }, { status: 500 })
   }
 }
