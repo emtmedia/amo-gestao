@@ -57,27 +57,23 @@ export async function POST() {
     await ensureBucketExists()
     const { url, path } = await uploadFile(csvBuffer, fileName, 'text/csv', 'audit-backups')
 
-    // 5. Garante que a categoria "Logs de Auditoria" existe (cria se necessário)
+    // 5. Garante que a categoria "Logs de Auditoria" existe — cria sempre se não encontrada
     type CatRow = { id: string; nome: string }
-    let cats = await prisma.$queryRaw<CatRow[]>`
-      SELECT id, nome FROM "CategoriaDocumento" ORDER BY nome ASC
+
+    // Tenta inserir (idempotente via ON CONFLICT)
+    await prisma.$executeRawUnsafe(
+      `INSERT INTO "CategoriaDocumento" ("id","nome","cor","icone","createdAt","updatedAt")
+       VALUES (gen_random_uuid()::text,'Logs de Auditoria','#4B5563','ClipboardList',NOW(),NOW())
+       ON CONFLICT ("nome") DO NOTHING`
+    )
+
+    const catRows = await prisma.$queryRaw<CatRow[]>`
+      SELECT id, nome FROM "CategoriaDocumento" WHERE nome = 'Logs de Auditoria' LIMIT 1
     `
-    let cat = cats.find(c => c.nome === 'Logs de Auditoria')
-      ?? cats.find(c => c.nome.toLowerCase().includes('financeiro'))
-      ?? cats.find(c => c.nome.toLowerCase().includes('outros'))
-      ?? cats[0]
+    const cat = catRows[0]
 
     if (!cat) {
-      // Cria a categoria se a tabela ainda não tem nenhuma
-      await prisma.$executeRawUnsafe(
-        `INSERT INTO "CategoriaDocumento" ("id","nome","cor","icone","createdAt","updatedAt") VALUES (gen_random_uuid()::text,'Logs de Auditoria','#4B5563','ClipboardList',NOW(),NOW()) ON CONFLICT ("nome") DO NOTHING`
-      )
-      const updated = await prisma.$queryRaw<CatRow[]>`SELECT id, nome FROM "CategoriaDocumento" WHERE nome = 'Logs de Auditoria'`
-      cat = updated[0]
-    }
-
-    if (!cat) {
-      return NextResponse.json({ success: false, error: 'Não foi possível determinar a categoria do documento.' }, { status: 500 })
+      return NextResponse.json({ success: false, error: 'Não foi possível criar a categoria "Logs de Auditoria".' }, { status: 500 })
     }
 
     // 6. Cria registro na Biblioteca de Documentos via Prisma ORM
