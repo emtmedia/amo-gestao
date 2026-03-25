@@ -69,6 +69,7 @@ const navItems: NavItem[] = [
     children: [
       { label: 'Cadastro de Voluntários', icon: Users, href: '/cadastros/voluntarios-amo' },
       { label: 'Termo de Voluntariado', icon: ClipboardList, href: '/termo-voluntariado' },
+      { label: 'Registro de Voluntariado', icon: ClipboardList, href: '/termos-voluntariado' },
       { label: 'Voluntários para Evento', icon: Users, href: '/cadastros/voluntarios-evento' },
       { label: 'Voluntários para Projeto', icon: Users, href: '/cadastros/voluntarios-projeto' },
     ]

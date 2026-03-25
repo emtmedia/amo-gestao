@@ -9,16 +9,23 @@ function formatNumero(seq: number) {
   return `N° ${String(seq).padStart(4, '0')}/${ano}`
 }
 
-// GET — retorna o próximo número (preview, não reserva)
+// GET — retorna lista de todos os termos + próximo número
 export async function GET() {
   try {
-    const rows = await prisma.$queryRaw<{ ultimo: number }[]>`
-      SELECT "ultimo" FROM "TermoVoluntariadoContador" WHERE "id" = 1
-    `
+    type TermoRow = {
+      id: string; numero: string; sequencia: number
+      voluntarioId: string; voluntarioNome: string; voluntarioCpf: string
+      projetoNome: string | null; eventoNome: string | null
+      emitidoEm: Date; createdAt: Date
+    }
+    const [items, rows] = await Promise.all([
+      prisma.$queryRaw<TermoRow[]>`SELECT * FROM "TermoVoluntariado" ORDER BY sequencia DESC`,
+      prisma.$queryRaw<{ ultimo: number }[]>`SELECT "ultimo" FROM "TermoVoluntariadoContador" WHERE "id" = 1`,
+    ])
     const ultimo = rows[0]?.ultimo ?? 0
-    return NextResponse.json({ success: true, proximo: formatNumero(ultimo + 1) })
+    return NextResponse.json({ success: true, data: items, proximo: formatNumero(ultimo + 1) })
   } catch {
-    return NextResponse.json({ success: true, proximo: formatNumero(1) })
+    return NextResponse.json({ success: true, data: [], proximo: formatNumero(1) })
   }
 }
 
