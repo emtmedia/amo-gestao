@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { Plus, Printer, Pencil, Trash2, Banknote, CalendarClock, Paperclip, ChevronDown, ChevronUp, ExternalLink, X, FileText, Image, File, FileSpreadsheet, FolderOpen, FileDown, Archive, ShieldAlert, Eye, EyeOff } from 'lucide-react'
+import DocAssinadoBadge from '@/components/ui/DocAssinadoBadge'
 import Modal from '@/components/ui/Modal'
 import CurrencyInput, { parseBRL } from '@/components/ui/CurrencyInput'
 import DateInput from '@/components/ui/DateInput'
@@ -40,6 +41,8 @@ interface ChequeRecibo {
   createdAt: string
   anexos: ChequeReciboAnexo[]
   totalDocumentos: number
+  docAssinadoUrl?: string | null
+  docAssinadoNome?: string | null
 }
 
 interface ProjetoItem { id: string; nome: string }
@@ -882,6 +885,14 @@ export default function ChequeReciboPage() {
                       {cr.numero}
                     </span>
                     <span className="text-xs text-navy-400">emitido em {fmtDate(cr.createdAt)}</span>
+                    <DocAssinadoBadge
+                      recordId={cr.id}
+                      apiBase="/api/cheque-recibo"
+                      docAssinadoUrl={cr.docAssinadoUrl ?? null}
+                      docAssinadoNome={cr.docAssinadoNome ?? null}
+                      isAdmin={isAdminUser}
+                      onUpdate={fetchData}
+                    />
                     {cr.arquivado && (
                       <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 bg-emerald-100 border border-emerald-300 rounded-full px-2 py-0.5">
                         <Archive className="w-3 h-3" /> Arquivado

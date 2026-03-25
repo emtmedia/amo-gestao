@@ -4,6 +4,7 @@ import { Receipt, Pencil, Trash2, Printer, RotateCcw, Plus, X } from 'lucide-rea
 import Modal from '@/components/ui/Modal'
 import CurrencyInput, { parseBRL } from '@/components/ui/CurrencyInput'
 import DateInput from '@/components/ui/DateInput'
+import DocAssinadoBadge from '@/components/ui/DocAssinadoBadge'
 
 interface Recibo {
   id: string
@@ -16,6 +17,8 @@ interface Recibo {
   valor: number
   descricao: string
   createdAt: string
+  docAssinadoUrl: string | null
+  docAssinadoNome: string | null
 }
 
 const maskCPF = (v: string) => {
@@ -327,6 +330,7 @@ export default function RecibosPage() {
                   <th className="px-4 py-3 text-left">CPF</th>
                   <th className="px-4 py-3 text-left">Descrição</th>
                   <th className="px-4 py-3 text-right">Valor</th>
+                  <th className="px-4 py-3 text-center">Assinatura</th>
                   <th className="px-4 py-3 text-center">Ações</th>
                 </tr>
               </thead>
@@ -345,6 +349,16 @@ export default function RecibosPage() {
                     <td className="px-4 py-3 font-mono text-navy-500 text-xs">{r.cpfRecebedor}</td>
                     <td className="px-4 py-3 text-navy-600 max-w-xs truncate" title={r.descricao}>{r.descricao}</td>
                     <td className="px-4 py-3 text-right font-bold text-navy-800 whitespace-nowrap">{fmtMoney(r.valor)}</td>
+                    <td className="px-4 py-3 text-center">
+                      <DocAssinadoBadge
+                        recordId={r.id}
+                        apiBase="/api/recibo"
+                        docAssinadoUrl={r.docAssinadoUrl}
+                        docAssinadoNome={r.docAssinadoNome}
+                        isAdmin={isAdmin}
+                        onUpdate={fetchData}
+                      />
+                    </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-center gap-1">
                         {/* Visualizar / Imprimir */}

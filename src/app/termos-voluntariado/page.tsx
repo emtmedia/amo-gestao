@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import { ClipboardList, Pencil, Trash2, Printer, RotateCcw, Plus, X } from 'lucide-react'
 import Modal from '@/components/ui/Modal'
 import DateInput from '@/components/ui/DateInput'
+import DocAssinadoBadge from '@/components/ui/DocAssinadoBadge'
 
 interface Termo {
   id: string
@@ -15,6 +16,8 @@ interface Termo {
   eventoNome: string | null
   emitidoEm: string
   createdAt: string
+  docAssinadoUrl: string | null
+  docAssinadoNome: string | null
 }
 
 interface Voluntario {
@@ -430,6 +433,7 @@ export default function TermosVoluntariadoPage() {
                   <th className="px-4 py-3 text-left">CPF</th>
                   <th className="px-4 py-3 text-left">Projeto</th>
                   <th className="px-4 py-3 text-left">Evento</th>
+                  <th className="px-4 py-3 text-center">Assinatura</th>
                   <th className="px-4 py-3 text-center">Ações</th>
                 </tr>
               </thead>
@@ -446,6 +450,16 @@ export default function TermosVoluntariadoPage() {
                     <td className="px-4 py-3 font-mono text-navy-500 text-xs">{t.voluntarioCpf}</td>
                     <td className="px-4 py-3 text-navy-600">{t.projetoNome || <span className="text-navy-300">—</span>}</td>
                     <td className="px-4 py-3 text-navy-600">{t.eventoNome || <span className="text-navy-300">—</span>}</td>
+                    <td className="px-4 py-3 text-center">
+                      <DocAssinadoBadge
+                        recordId={t.id}
+                        apiBase="/api/termo-voluntariado"
+                        docAssinadoUrl={t.docAssinadoUrl}
+                        docAssinadoNome={t.docAssinadoNome}
+                        isAdmin={isAdmin}
+                        onUpdate={fetchData}
+                      />
+                    </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-center gap-1">
                         {/* Visualizar / Imprimir */}

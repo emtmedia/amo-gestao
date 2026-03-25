@@ -15,6 +15,7 @@ export async function GET() {
     type ReciboRow = {
       id: string; numero: string; sequencia: number; data: string; hora: string
       nomeRecebedor: string; cpfRecebedor: string; valor: number; descricao: string; createdAt: Date
+      docAssinadoUrl: string | null; docAssinadoPath: string | null; docAssinadoNome: string | null
     }
     const [items, rows] = await Promise.all([
       prisma.$queryRaw<ReciboRow[]>`SELECT * FROM "Recibo" ORDER BY sequencia DESC`,

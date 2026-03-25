@@ -17,6 +17,7 @@ export async function GET() {
       voluntarioId: string; voluntarioNome: string; voluntarioCpf: string
       projetoNome: string | null; eventoNome: string | null
       emitidoEm: Date; createdAt: Date
+      docAssinadoUrl: string | null; docAssinadoPath: string | null; docAssinadoNome: string | null
     }
     const [items, rows] = await Promise.all([
       prisma.$queryRaw<TermoRow[]>`SELECT * FROM "TermoVoluntariado" ORDER BY sequencia DESC`,

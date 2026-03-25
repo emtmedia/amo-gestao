@@ -36,6 +36,9 @@ export async function POST() {
     await prisma.$executeRawUnsafe(`ALTER TABLE "ChequeRecibo" ADD COLUMN IF NOT EXISTS "eventoId" TEXT`)
     await prisma.$executeRawUnsafe(`ALTER TABLE "ChequeRecibo" ADD COLUMN IF NOT EXISTS "arquivado" BOOLEAN NOT NULL DEFAULT false`)
     await prisma.$executeRawUnsafe(`ALTER TABLE "ChequeRecibo" ADD COLUMN IF NOT EXISTS "arquivadoEm" TIMESTAMP`)
+    await prisma.$executeRawUnsafe(`ALTER TABLE "ChequeRecibo" ADD COLUMN IF NOT EXISTS "docAssinadoUrl"  TEXT`)
+    await prisma.$executeRawUnsafe(`ALTER TABLE "ChequeRecibo" ADD COLUMN IF NOT EXISTS "docAssinadoPath" TEXT`)
+    await prisma.$executeRawUnsafe(`ALTER TABLE "ChequeRecibo" ADD COLUMN IF NOT EXISTS "docAssinadoNome" TEXT`)
     return NextResponse.json({ success: true })
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error)

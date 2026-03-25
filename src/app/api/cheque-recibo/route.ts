@@ -19,6 +19,7 @@ export async function GET() {
       observacoes: string | null; projetoId: string | null; eventoId: string | null;
       arquivado: boolean; arquivadoEm: Date | null;
       createdAt: Date; updatedAt: Date;
+      docAssinadoUrl: string | null; docAssinadoPath: string | null; docAssinadoNome: string | null;
     }
     const [items, rows] = await Promise.all([
       prisma.$queryRaw<CRRow[]>`
@@ -26,6 +27,7 @@ export async function GET() {
                "metodoTransferencia", "nomeRecebedor", "cpfRecebedor", "dataAcertoNotas",
                observacoes, "projetoId", "eventoId",
                COALESCE("arquivado", false) AS "arquivado", "arquivadoEm",
+               "docAssinadoUrl", "docAssinadoPath", "docAssinadoNome",
                "createdAt", "updatedAt"
         FROM "ChequeRecibo" ORDER BY sequencia DESC
       `,
