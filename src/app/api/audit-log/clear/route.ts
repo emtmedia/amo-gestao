@@ -48,10 +48,12 @@ export async function POST() {
     const csv = buildCsv(logs)
     const csvBuffer = Buffer.from('\uFEFF' + csv, 'utf-8')
 
-    // 3. Nome do arquivo: YYYY-MM-DD-hh.mm.ss-LogsBckp.csv
+    // 3. Nome do arquivo: YYYY-MM-DD-hh.mm.ss-LogsBckp.csv (horário de Brasília)
     const now = new Date()
-    const pad = (n: number) => String(n).padStart(2, '0')
-    const fileName = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}-${pad(now.getHours())}.${pad(now.getMinutes())}.${pad(now.getSeconds())}-LogsBckp.csv`
+    // 'sv-SE' produz "YYYY-MM-DD HH:MM:SS" — ideal para desestruturar
+    const brasiliaStr = now.toLocaleString('sv-SE', { timeZone: 'America/Sao_Paulo' })
+    const [datePart, timePart] = brasiliaStr.split(' ')
+    const fileName = `${datePart}-${timePart.replace(/:/g, '.')}-LogsBckp.csv`
 
     // 4. Upload para Supabase Storage
     await ensureBucketExists()
