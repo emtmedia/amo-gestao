@@ -16,7 +16,8 @@ export async function GET(_: NextRequest, { params }: { params: { id: string } }
 export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
   try {
     const body = await request.json()
-    const item = await prisma.contaBancaria.update({ where: { id: params.id }, data: body })
+    const { tipo, banco, agencia, numeroConta, descricao } = body
+    const item = await prisma.contaBancaria.update({ where: { id: params.id }, data: { tipo, banco, agencia, numeroConta, descricao: descricao || null } })
     await logAudit("EDITAR", "Conta Bancária", params.id)
     return NextResponse.json({ success: true, data: item })
   } catch (error) {

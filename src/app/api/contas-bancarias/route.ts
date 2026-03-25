@@ -15,7 +15,8 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const item = await prisma.contaBancaria.create({ data: body })
+    const { tipo, banco, agencia, numeroConta, descricao } = body
+    const item = await prisma.contaBancaria.create({ data: { tipo, banco, agencia, numeroConta, descricao: descricao || null } })
     await logAudit("CRIAR", "Conta Bancária", item.id, `Criado: ${JSON.stringify(body).substring(0,200)}`)
     return NextResponse.json({ success: true, data: item })
   } catch (error) {
