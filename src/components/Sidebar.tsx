@@ -110,6 +110,7 @@ const navItems: NavItem[] = [
     label: 'Configurações', icon: Settings,
     children: [
       { label: 'Emissão de Recibo', icon: Receipt, href: '/recibo' },
+      { label: 'Recibos Emitidos', icon: ClipboardList, href: '/recibos' },
       { label: 'Guia do Usuário', icon: BookOpen, href: '/configuracoes/guia' },
       { label: 'Log de Auditoria', icon: FileText, href: '/admin/audit-log', adminOnly: true },
       { label: 'Preferências', icon: Settings, href: '/configuracoes' },
