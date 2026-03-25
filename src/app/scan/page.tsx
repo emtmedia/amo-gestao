@@ -21,9 +21,18 @@ interface UserSession {
 interface ChequeReciboItem {
   id: string
   numero: string
-  nomeRecebedor: string
+  nomeOperador: string
+  dataTransferencia: string
   valorConcedido: number
+  metodoTransferencia: string
+  nomeRecebedor: string
+  cpfRecebedor: string
+  dataAcertoNotas: string
+  observacoes?: string | null
+  projetoNome?: string | null
+  eventoNome?: string | null
   totalDocumentos: number
+  docAssinadoUrl?: string | null
 }
 
 interface ReciboItem {
@@ -792,42 +801,105 @@ export default function ScanPage() {
             {/* Formulário */}
             <div className="space-y-4">
               {/* Resumo do registro quando em modo doc-assinado */}
-              {docAssinadoMode && (
+              {docAssinadoMode && docAssinadoTipo !== 'cheque-recibo' && (
                 <div className={`flex items-center gap-3 rounded-xl p-3 border ${
-                  docAssinadoTipo === 'recibo'
-                    ? 'bg-blue-50 border-blue-200'
-                    : docAssinadoTipo === 'termo'
-                      ? 'bg-emerald-50 border-emerald-200'
-                      : 'bg-pink-50 border-pink-200'
+                  docAssinadoTipo === 'recibo' ? 'bg-blue-50 border-blue-200' : 'bg-emerald-50 border-emerald-200'
                 }`}>
-                  <CheckCircle2 size={18} className={`shrink-0 ${
-                    docAssinadoTipo === 'recibo' ? 'text-blue-600'
-                    : docAssinadoTipo === 'termo' ? 'text-emerald-600'
-                    : 'text-pink-600'
-                  }`} />
+                  <CheckCircle2 size={18} className={`shrink-0 ${docAssinadoTipo === 'recibo' ? 'text-blue-600' : 'text-emerald-600'}`} />
                   <div>
-                    <p className={`text-xs font-medium ${
-                      docAssinadoTipo === 'recibo' ? 'text-blue-700'
-                      : docAssinadoTipo === 'termo' ? 'text-emerald-700'
-                      : 'text-pink-700'
-                    }`}>
-                      {docAssinadoTipo === 'recibo' ? 'Recibo de Pagamento' : docAssinadoTipo === 'termo' ? 'Termo de Voluntariado' : 'Cheque-Recibo'}
+                    <p className={`text-xs font-medium ${docAssinadoTipo === 'recibo' ? 'text-blue-700' : 'text-emerald-700'}`}>
+                      {docAssinadoTipo === 'recibo' ? 'Recibo de Pagamento' : 'Termo de Voluntariado'}
                     </p>
-                    <p className={`text-sm font-semibold ${
-                      docAssinadoTipo === 'recibo' ? 'text-blue-800'
-                      : docAssinadoTipo === 'termo' ? 'text-emerald-800'
-                      : 'text-pink-800'
-                    }`}>
+                    <p className={`text-sm font-semibold ${docAssinadoTipo === 'recibo' ? 'text-blue-800' : 'text-emerald-800'}`}>
                       {docAssinadoTipo === 'recibo'
                         ? (() => { const r = recibos.find(x => x.id === selectedDocRecord); return r ? `${r.numero} — ${r.nomeRecebedor}` : '' })()
-                        : docAssinadoTipo === 'termo'
-                          ? (() => { const t = termos.find(x => x.id === selectedDocRecord); return t ? `${t.numero} — ${t.nomeVoluntario}` : '' })()
-                          : (() => { const c = chequeRecibos.find(x => x.id === selectedDocRecord); return c ? `${c.numero} — ${c.nomeRecebedor}` : '' })()
+                        : (() => { const t = termos.find(x => x.id === selectedDocRecord); return t ? `${t.numero} — ${t.nomeVoluntario}` : '' })()
                       }
                     </p>
                   </div>
                 </div>
               )}
+
+              {/* Card expandido para Cheque-Recibo */}
+              {docAssinadoMode && docAssinadoTipo === 'cheque-recibo' && (() => {
+                const cr = chequeRecibos.find(x => x.id === selectedDocRecord)
+                if (!cr) return null
+                const fmtDate = (d: string) => d ? new Date(d + (d.length === 10 ? 'T12:00:00' : '')).toLocaleDateString('pt-BR') : '—'
+                const fmtMoney = (v: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v)
+                const saldo = cr.valorConcedido - (cr.totalDocumentos ?? 0)
+                const saldoZero = Math.abs(saldo) < 0.005
+                return (
+                  <div className="rounded-xl border border-pink-200 bg-pink-50 overflow-hidden">
+                    {/* Cabeçalho */}
+                    <div className="flex items-center justify-between px-3 py-2 bg-pink-100 border-b border-pink-200">
+                      <div className="flex items-center gap-2">
+                        <CheckCircle2 size={15} className="text-pink-600 shrink-0" />
+                        <span className="text-xs font-semibold text-pink-700">Cheque-Recibo</span>
+                      </div>
+                      <span className="text-sm font-bold text-pink-800">{cr.numero}</span>
+                    </div>
+                    {/* Corpo — grade 2 colunas */}
+                    <div className="px-3 py-2 grid grid-cols-2 gap-x-4 gap-y-1">
+                      <div className="col-span-2">
+                        <p className="text-[10px] text-pink-500 uppercase tracking-wide leading-none mb-0.5">Recebedor</p>
+                        <p className="text-xs font-semibold text-pink-900">{cr.nomeRecebedor}</p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] text-pink-500 uppercase tracking-wide leading-none mb-0.5">CPF</p>
+                        <p className="text-xs text-pink-800">{cr.cpfRecebedor}</p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] text-pink-500 uppercase tracking-wide leading-none mb-0.5">Operador</p>
+                        <p className="text-xs text-pink-800">{cr.nomeOperador}</p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] text-pink-500 uppercase tracking-wide leading-none mb-0.5">Valor Concedido</p>
+                        <p className="text-xs font-semibold text-pink-900">{fmtMoney(cr.valorConcedido)}</p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] text-pink-500 uppercase tracking-wide leading-none mb-0.5">Método</p>
+                        <p className="text-xs text-pink-800">{cr.metodoTransferencia}</p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] text-pink-500 uppercase tracking-wide leading-none mb-0.5">Data Transferência</p>
+                        <p className="text-xs text-pink-800">{fmtDate(cr.dataTransferencia)}</p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] text-pink-500 uppercase tracking-wide leading-none mb-0.5">Acerto de Notas</p>
+                        <p className="text-xs text-pink-800">{fmtDate(cr.dataAcertoNotas)}</p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] text-pink-500 uppercase tracking-wide leading-none mb-0.5">Docs Vinculados</p>
+                        <p className="text-xs text-pink-800">{fmtMoney(cr.totalDocumentos ?? 0)}</p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] text-pink-500 uppercase tracking-wide leading-none mb-0.5">Saldo Pendente</p>
+                        <p className={`text-xs font-semibold ${saldoZero ? 'text-emerald-700' : 'text-red-600'}`}>
+                          {saldoZero ? '✓ R$ 0,00' : `- ${fmtMoney(Math.abs(saldo))}`}
+                        </p>
+                      </div>
+                      {cr.projetoNome && (
+                        <div className="col-span-2">
+                          <p className="text-[10px] text-pink-500 uppercase tracking-wide leading-none mb-0.5">Projeto</p>
+                          <p className="text-xs text-pink-800">{cr.projetoNome}</p>
+                        </div>
+                      )}
+                      {cr.eventoNome && (
+                        <div className="col-span-2">
+                          <p className="text-[10px] text-pink-500 uppercase tracking-wide leading-none mb-0.5">Evento</p>
+                          <p className="text-xs text-pink-800">{cr.eventoNome}</p>
+                        </div>
+                      )}
+                      {cr.observacoes && (
+                        <div className="col-span-2">
+                          <p className="text-[10px] text-pink-500 uppercase tracking-wide leading-none mb-0.5">Observações</p>
+                          <p className="text-xs text-pink-800 italic">{cr.observacoes}</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )
+              })()}
 
               {!(destino === 'cheque-recibo' && isDocAssinado) && !docAssinadoMode && (
               <div>
