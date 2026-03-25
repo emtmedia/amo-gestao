@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic'
 export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
   try {
     const session = await getSession()
-    const isAdmin = session?.role === 'admin'
+    const isAdmin = ['admin', 'superadmin'].includes(session?.role ?? '')
 
     const body = await req.json()
 
@@ -45,7 +45,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
 export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
   try {
     const session = await getSession()
-    const isAdmin = session?.role === 'admin'
+    const isAdmin = ['admin', 'superadmin'].includes(session?.role ?? '')
 
     // Usuário comum não pode deletar documento restrito
     if (!isAdmin) {
