@@ -44,7 +44,7 @@ export default function VoluntariosProjetoPage() {
       ])
       const [jv, jp, jd, jf] = await Promise.all([rv.json(), rp.json(), rd.json(), rf.json()])
       if (jv.success) setVoluntarios(jv.data)
-      if (jp.success) setProjetos(jp.data)
+      if (jp.success) setProjetos(jp.data.filter((p: any) => p.status !== 'encerrado_consolidado'))
       if (jd.success) setData(jd.data)
       if (jf.success) setFuncoesCargo(jf.data)
     } finally { setLoading(false) }

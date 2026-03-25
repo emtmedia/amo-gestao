@@ -704,8 +704,8 @@ export default function ChequeReciboPage() {
       const [jd, jm, jp, je] = await Promise.all([rd.json(), rm.json(), rp.json(), re.json()])
       if (jd.success) { setData(jd.data); setProximoNumero(jd.proximo) }
       if (jm.success) setMetodos(jm.data)
-      if (jp.success) setProjetos(jp.data.map((p: { id: string; nome: string }) => ({ id: p.id, nome: p.nome })))
-      if (je.success) setEventos(je.data.map((e: { id: string; nome: string; projetoVinculadoId: string | null }) => ({ id: e.id, nome: e.nome, projetoVinculadoId: e.projetoVinculadoId ?? null })))
+      if (jp.success) setProjetos(jp.data.filter((p: any) => p.status !== 'encerrado_consolidado').map((p: { id: string; nome: string }) => ({ id: p.id, nome: p.nome })))
+      if (je.success) setEventos(je.data.filter((e: any) => e.status !== 'encerrado_consolidado').map((e: { id: string; nome: string; projetoVinculadoId: string | null }) => ({ id: e.id, nome: e.nome, projetoVinculadoId: e.projetoVinculadoId ?? null })))
     } finally { setLoading(false) }
   }, [])
 

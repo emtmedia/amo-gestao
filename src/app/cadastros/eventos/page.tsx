@@ -75,7 +75,7 @@ export default function EventosPage() {
       ])
       const [je, jp, jc, ju, jme] = await Promise.all([re.json(), rp.json(), rc.json(), ru.json(), rme.json()])
       if (je.success) setData(je.data)
-      if (jp.success) setProjetos(jp.data)
+      if (jp.success) setProjetos(jp.data.filter((p: any) => p.status !== 'encerrado_consolidado'))
       if (jc.success) setContas(jc.data)
       if (ju.success) setUfs(ju.data)
       if (jme.usuario) setUserRole(jme.usuario.role)

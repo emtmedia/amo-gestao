@@ -50,8 +50,8 @@ export default function Page() {
       if (jc.success) setContas(jc.data)
       if (jm.success) setMetodos(jm.data)
       if (jo.success) setOpcoes(jo.data)
-      if (jp.success) setProjetos(jp.data)
-      if (je.success) setEventos(je.data)
+      if (jp.success) setProjetos(jp.data.filter((p: any) => p.status !== 'encerrado_consolidado'))
+      if (je.success) setEventos(je.data.filter((e: any) => e.status !== 'encerrado_consolidado'))
     } finally { setLoading(false) }
   }, [])
   useEffect(() => { fetchData() }, [fetchData])

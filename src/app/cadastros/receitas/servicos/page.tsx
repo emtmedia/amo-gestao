@@ -41,7 +41,7 @@ export default function Page() {
     try {
       const [rd, rc, rm, ro, rp, re] = await Promise.all([fetch('/api/receitas/servicos'), fetch('/api/contas-bancarias'), fetch('/api/auxiliares?tipo=metodos'), fetch('/api/auxiliares?tipo=servicos'), fetch('/api/projetos'), fetch('/api/eventos')])
       const [jd, jc, jm, jo, jp, je] = await Promise.all([rd.json(), rc.json(), rm.json(), ro.json(), rp.json(), re.json()])
-      if (jd.success) setData(jd.data); if (jc.success) setContas(jc.data); if (jm.success) setMetodos(jm.data); if (jo.success) setOpcoes(jo.data); if (jp.success) setProjetos(jp.data); if (je.success) setEventos(je.data)
+      if (jd.success) setData(jd.data); if (jc.success) setContas(jc.data); if (jm.success) setMetodos(jm.data); if (jo.success) setOpcoes(jo.data); if (jp.success) setProjetos(jp.data.filter((p: any) => p.status !== 'encerrado_consolidado')); if (je.success) setEventos(je.data.filter((e: any) => e.status !== 'encerrado_consolidado'))
     } finally { setLoading(false) }
   }, [])
   useEffect(() => { fetchData() }, [fetchData])
