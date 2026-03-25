@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
-import { Users, Plus, Eye, EyeOff, UserCheck, UserX, Trash2, Crown, Shield, User } from 'lucide-react'
+import { Users, Plus, Eye, EyeOff, UserCheck, UserX, Trash2, Crown, Shield, User, ArrowLeftRight } from 'lucide-react'
 
 interface Usuario { id: string; nome: string; email: string; role: string; ativo: boolean; createdAt: string }
 
@@ -81,6 +81,20 @@ export default function UsuariosPage() {
       body: JSON.stringify({ ativo: !ativo })
     })
     if (res.ok) { showToast(`Usuário ${!ativo ? 'ativado' : 'desativado'}.`); fetchData() }
+    else { const d = await res.json(); showToast(d.error || 'Erro', 'error') }
+  }
+
+  const handleToggleRole = async (u: Usuario) => {
+    const novoRole = u.role === 'admin' ? 'user' : 'admin'
+    if (novoRole === 'admin' && counts.admin >= ROLE_LIMITS.admin) {
+      showToast(`Limite de ${ROLE_LIMITS.admin} Admin(s) atingido.`, 'error'); return
+    }
+    const res = await fetch(`/api/admin/usuarios/${u.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ role: novoRole }),
+    })
+    if (res.ok) { showToast(`Perfil alterado para ${ROLE_LABELS[novoRole]}.`); fetchData() }
     else { const d = await res.json(); showToast(d.error || 'Erro', 'error') }
   }
 
@@ -170,6 +184,15 @@ export default function UsuariosPage() {
                   <div className="flex items-center justify-center gap-1">
                     {canManage(u.role) && (
                       <>
+                        {currentRole === 'superadmin' && u.role !== 'superadmin' && (
+                          <button
+                            onClick={() => handleToggleRole(u)}
+                            title={u.role === 'admin' ? 'Tornar Usuário Comum' : 'Tornar Admin'}
+                            className="p-1.5 rounded-lg text-purple-500 hover:bg-purple-50 transition-colors"
+                          >
+                            <ArrowLeftRight size={16} />
+                          </button>
+                        )}
                         <button
                           onClick={() => toggleAtivo(u.id, u.ativo)}
                           title={u.ativo ? 'Desativar' : 'Ativar'}

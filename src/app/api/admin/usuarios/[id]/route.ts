@@ -18,8 +18,23 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   if (targetLevel >= callerLevel) {
     return NextResponse.json({ error: 'Sem permissão para alterar este usuário.' }, { status: 403 })
   }
-  const { ativo } = await req.json()
-  const usuario = await prisma.usuario.update({ where: { id: params.id }, data: { ativo } })
+  const body = await req.json()
+  const data: { ativo?: boolean; role?: string } = {}
+
+  if ('ativo' in body) data.ativo = body.ativo
+
+  if ('role' in body) {
+    if (session.role !== 'superadmin') {
+      return NextResponse.json({ error: 'Somente SuperAdmin pode alterar o perfil de usuários.' }, { status: 403 })
+    }
+    const novoRole = String(body.role)
+    if (!['admin', 'user'].includes(novoRole)) {
+      return NextResponse.json({ error: 'Perfil inválido.' }, { status: 400 })
+    }
+    data.role = novoRole
+  }
+
+  const usuario = await prisma.usuario.update({ where: { id: params.id }, data })
   return NextResponse.json(usuario)
 }
 
