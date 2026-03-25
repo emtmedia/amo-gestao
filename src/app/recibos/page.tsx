@@ -1,6 +1,6 @@
 'use client'
-import { useState, useEffect, useCallback } from 'react'
-import { Receipt, Pencil, Trash2, Printer, RotateCcw, Plus } from 'lucide-react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
+import { Receipt, Pencil, Trash2, Printer, RotateCcw, Plus, X } from 'lucide-react'
 import Modal from '@/components/ui/Modal'
 import CurrencyInput, { parseBRL } from '@/components/ui/CurrencyInput'
 import DateInput from '@/components/ui/DateInput'
@@ -129,6 +129,11 @@ export default function RecibosPage() {
   const [currentRole, setCurrentRole] = useState('')
   const [toast, setToast] = useState<{ msg: string; type: 'success' | 'error' } | null>(null)
 
+  // Filters
+  const [filtroInicio, setFiltroInicio] = useState('')
+  const [filtroFim, setFiltroFim] = useState('')
+  const [filtroRecebedor, setFiltroRecebedor] = useState('')
+
   // Edit modal
   const [editModal, setEditModal] = useState(false)
   const [editing, setEditing] = useState<Recibo | null>(null)
@@ -144,7 +149,6 @@ export default function RecibosPage() {
 
   const showToast = (msg: string, type: 'success' | 'error' = 'success') => {
     setToast({ msg, type }); setTimeout(() => setToast(null), 3500)
-    setModalAlert({ type, message: msg }); setTimeout(() => setModalAlert(null), 4000)
   }
 
   const fetchData = useCallback(async () => {
@@ -161,7 +165,27 @@ export default function RecibosPage() {
     fetch('/api/migrate/recibo', { method: 'POST' }).catch(() => {}).then(() => fetchData())
   }, [fetchData])
 
+  // Sorted unique recebedor names for dropdown
+  const recebedores = useMemo(() =>
+    [...new Set(data.map(r => r.nomeRecebedor))].sort((a, b) => a.localeCompare(b, 'pt-BR')),
+    [data]
+  )
+
+  // Filtered data
+  const filtered = useMemo(() => {
+    return data.filter(r => {
+      if (filtroInicio && r.data < filtroInicio) return false
+      if (filtroFim && r.data > filtroFim) return false
+      if (filtroRecebedor && r.nomeRecebedor !== filtroRecebedor) return false
+      return true
+    })
+  }, [data, filtroInicio, filtroFim, filtroRecebedor])
+
+  const hasFilter = filtroInicio || filtroFim || filtroRecebedor
+  const clearFilter = () => { setFiltroInicio(''); setFiltroFim(''); setFiltroRecebedor('') }
+
   const openEdit = (r: Recibo) => {
+    if (!isAdmin) { showToast('Somente Admin ou SuperAdmin pode editar recibos.', 'error'); return }
     setEditing(r)
     setForm({
       data: r.data,
@@ -177,7 +201,7 @@ export default function RecibosPage() {
 
   const handleSave = async () => {
     if (!form.data || !form.nomeRecebedor || !form.cpfRecebedor || !form.valor || !form.descricao) {
-      showToast('Preencha todos os campos obrigatórios.', 'error'); return
+      setModalAlert({ type: 'error', message: 'Preencha todos os campos obrigatórios.' }); return
     }
     setSaving(true)
     try {
@@ -192,7 +216,7 @@ export default function RecibosPage() {
         setEditModal(false)
         fetchData()
       } else {
-        showToast(j.error || 'Erro ao salvar.', 'error')
+        setModalAlert({ type: 'error', message: j.error || 'Erro ao salvar.' })
       }
     } finally { setSaving(false) }
   }
@@ -227,7 +251,9 @@ export default function RecibosPage() {
           <Receipt className="w-7 h-7 text-navy-700" />
           <div>
             <h1 className="page-title">Recibos Emitidos</h1>
-            <p className="text-sm text-navy-400">{data.length} registro{data.length !== 1 ? 's' : ''}</p>
+            <p className="text-sm text-navy-400">
+              {hasFilter ? `${filtered.length} de ${data.length}` : data.length} registro{data.length !== 1 ? 's' : ''}
+            </p>
           </div>
         </div>
         <a href="/recibo" className="btn-primary flex items-center gap-2">
@@ -235,17 +261,60 @@ export default function RecibosPage() {
         </a>
       </div>
 
+      {/* Filters */}
+      <div className="card mb-4">
+        <div className="flex flex-wrap items-end gap-4">
+          <DateInput
+            label="Data início"
+            value={filtroInicio}
+            onChange={setFiltroInicio}
+          />
+          <DateInput
+            label="Data final"
+            value={filtroFim}
+            onChange={setFiltroFim}
+          />
+          <div className="form-group min-w-[220px] flex-1">
+            <label>Recebedor</label>
+            <select
+              value={filtroRecebedor}
+              onChange={e => setFiltroRecebedor(e.target.value)}
+              className="form-input"
+            >
+              <option value="">— Todos —</option>
+              {recebedores.map(nome => (
+                <option key={nome} value={nome}>{nome}</option>
+              ))}
+            </select>
+          </div>
+          {hasFilter && (
+            <button
+              onClick={clearFilter}
+              title="Limpar filtros"
+              className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium text-navy-500 hover:text-red-600 hover:bg-red-50 border border-cream-300 transition-colors mb-0.5"
+            >
+              <X className="w-3.5 h-3.5" />
+              Limpar Filtro
+            </button>
+          )}
+        </div>
+      </div>
+
       {/* Table */}
       <div className="card overflow-hidden p-0">
         {loading ? (
           <div className="text-center py-12 text-navy-400">Carregando...</div>
-        ) : data.length === 0 ? (
+        ) : filtered.length === 0 ? (
           <div className="text-center py-12">
             <Receipt className="w-12 h-12 text-navy-200 mx-auto mb-3" />
-            <p className="text-navy-400 font-medium">Nenhum recibo emitido ainda.</p>
-            <a href="/recibo" className="inline-flex items-center gap-2 mt-4 text-sm text-navy-600 hover:text-navy-800 font-medium">
-              <Plus className="w-4 h-4" /> Emitir primeiro recibo
-            </a>
+            <p className="text-navy-400 font-medium">
+              {hasFilter ? 'Nenhum recibo encontrado para os filtros aplicados.' : 'Nenhum recibo emitido ainda.'}
+            </p>
+            {!hasFilter && (
+              <a href="/recibo" className="inline-flex items-center gap-2 mt-4 text-sm text-navy-600 hover:text-navy-800 font-medium">
+                <Plus className="w-4 h-4" /> Emitir primeiro recibo
+              </a>
+            )}
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -262,7 +331,7 @@ export default function RecibosPage() {
                 </tr>
               </thead>
               <tbody>
-                {data.map(r => (
+                {filtered.map(r => (
                   <tr key={r.id} className="border-b border-cream-100 hover:bg-cream-50 transition-colors">
                     <td className="px-4 py-3">
                       <span className="font-mono font-semibold text-xs px-2 py-1 rounded border border-indigo-200 text-indigo-700 bg-indigo-50">
@@ -286,11 +355,11 @@ export default function RecibosPage() {
                         >
                           <Printer className="w-4 h-4" />
                         </button>
-                        {/* Editar */}
+                        {/* Editar — somente Admin/SuperAdmin */}
                         <button
                           onClick={() => openEdit(r)}
-                          title="Editar"
-                          className="p-1.5 rounded-lg bg-navy-50 hover:bg-navy-100 text-navy-600 transition-colors"
+                          title={isAdmin ? 'Editar' : 'Sem permissão para editar'}
+                          className={`p-1.5 rounded-lg transition-colors ${isAdmin ? 'bg-navy-50 hover:bg-navy-100 text-navy-600' : 'bg-gray-50 text-gray-300 cursor-not-allowed'}`}
                         >
                           <Pencil className="w-4 h-4" />
                         </button>
