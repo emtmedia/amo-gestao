@@ -37,13 +37,13 @@ export default function ConfiguracoesPage() {
 
         {/* ── Seção 1: Scanner ── */}
         <div className="card">
-          <div className="-mx-6 -mt-6 px-6 py-4 mb-6 rounded-t-xl bg-blue-50 dark:bg-blue-900/30 border-b border-blue-200 dark:border-blue-800 flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-blue-100 dark:bg-blue-900/60 flex items-center justify-center">
-              <ScanLine className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+          <div className="-mx-6 -mt-6 px-6 py-4 mb-6 rounded-t-xl border-b border-[#7bbdb6] flex items-center gap-3" style={{ backgroundColor: '#ABD9D3' }}>
+            <div className="w-9 h-9 rounded-xl bg-white/30 flex items-center justify-center">
+              <ScanLine className="w-5 h-5 text-navy-700" />
             </div>
             <div>
-              <h2 className="font-semibold text-blue-900 dark:text-blue-100">Configurações do Scanner</h2>
-              <p className="text-xs text-blue-600 dark:text-blue-400">Ajuste a qualidade de captura de documentos.</p>
+              <h2 className="font-semibold text-navy-800">Configurações do Scanner</h2>
+              <p className="text-xs text-navy-700">Ajuste a qualidade de captura de documentos.</p>
             </div>
           </div>
 
@@ -155,13 +155,13 @@ export default function ConfiguracoesPage() {
 
         {/* ── Seção 2: Aparência ── */}
         <div className="card">
-          <div className="-mx-6 -mt-6 px-6 py-4 mb-6 rounded-t-xl bg-purple-50 dark:bg-purple-900/30 border-b border-purple-200 dark:border-purple-800 flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-purple-100 dark:bg-purple-900/60 flex items-center justify-center">
-              <Palette className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+          <div className="-mx-6 -mt-6 px-6 py-4 mb-6 rounded-t-xl border-b border-[#7bbdb6] flex items-center gap-3" style={{ backgroundColor: '#ABD9D3' }}>
+            <div className="w-9 h-9 rounded-xl bg-white/30 flex items-center justify-center">
+              <Palette className="w-5 h-5 text-navy-700" />
             </div>
             <div>
-              <h2 className="font-semibold text-purple-900 dark:text-purple-100">Aparência</h2>
-              <p className="text-xs text-purple-600 dark:text-purple-400">Personalize a interface do sistema.</p>
+              <h2 className="font-semibold text-navy-800">Aparência</h2>
+              <p className="text-xs text-navy-700">Personalize a interface do sistema.</p>
             </div>
           </div>
 
@@ -251,13 +251,13 @@ export default function ConfiguracoesPage() {
 
         {/* ── Seção 3: Relatórios com IA ── */}
         <div className="card">
-          <div className="-mx-6 -mt-6 px-6 py-4 mb-6 rounded-t-xl bg-violet-50 dark:bg-violet-900/30 border-b border-violet-200 dark:border-violet-800 flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-violet-100 dark:bg-violet-900/60 flex items-center justify-center">
-              <Sparkles className="w-5 h-5 text-violet-600 dark:text-violet-400" />
+          <div className="-mx-6 -mt-6 px-6 py-4 mb-6 rounded-t-xl border-b border-[#7bbdb6] flex items-center gap-3" style={{ backgroundColor: '#ABD9D3' }}>
+            <div className="w-9 h-9 rounded-xl bg-white/30 flex items-center justify-center">
+              <Sparkles className="w-5 h-5 text-navy-700" />
             </div>
             <div>
-              <h2 className="font-semibold text-violet-900 dark:text-violet-100">Relatórios com IA</h2>
-              <p className="text-xs text-violet-600 dark:text-violet-400">Comportamento ao acessar a seção de Relatórios com IA.</p>
+              <h2 className="font-semibold text-navy-800">Relatórios com IA</h2>
+              <p className="text-xs text-navy-700">Comportamento ao acessar a seção de Relatórios com IA.</p>
             </div>
           </div>
 
