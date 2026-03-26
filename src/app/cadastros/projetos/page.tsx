@@ -125,8 +125,20 @@ export default function ProjetosPage() {
     setModalOpen(true)
   }
 
+  const isAdminGeralNome = (nome?: string) =>
+    (nome || '').trim().toUpperCase() === 'ADMINISTRAÇÃO GERAL'
+
   const openEdit = (row: Record<string, unknown>) => {
     const projeto = row as unknown as Projeto
+    if (isAdminGeralNome(projeto.nome)) {
+      if (userRole !== 'superadmin') {
+        showToast('O projeto ADMINISTRAÇÃO GERAL só pode ser editado pelo SuperAdmin', 'error')
+        return
+      }
+      setPendingEdit(projeto)
+      setShowPasswordModal(true)
+      return
+    }
     if (projeto.status === 'encerrado_consolidado') {
       if (userRole !== 'superadmin') {
         showToast('Apenas o SUPERADMIN pode editar projetos consolidados', 'error')
@@ -154,6 +166,16 @@ export default function ProjetosPage() {
   const isAdmin = userRole === 'admin' || userRole === 'superadmin'
 
   const openDelete = (id: string) => {
+    const projeto = data.find(p => p.id === id)
+    if (isAdminGeralNome(projeto?.nome)) {
+      if (userRole !== 'superadmin') {
+        showToast('O projeto ADMINISTRAÇÃO GERAL só pode ser excluído pelo SuperAdmin', 'error')
+        return
+      }
+      setPendingDeleteId(id)
+      setShowDeletePasswordModal(true)
+      return
+    }
     if (!isAdmin) { showToast('Apenas Admin ou SuperAdmin podem excluir projetos', 'error'); return }
     setPendingDeleteId(id)
     setShowDeletePasswordModal(true)
@@ -317,8 +339,10 @@ export default function ProjetosPage() {
 
       <PasswordConfirmModal
         isOpen={showPasswordModal}
-        title="Editar Projeto Consolidado"
-        description="Este projeto está consolidado. Confirme sua senha para continuar."
+        title={isAdminGeralNome(pendingEdit?.nome) ? 'Editar Projeto Especial — ADMINISTRAÇÃO GERAL' : 'Editar Projeto Consolidado'}
+        description={isAdminGeralNome(pendingEdit?.nome)
+          ? 'O projeto ADMINISTRAÇÃO GERAL tem caráter especial e só pode ser editado pelo SuperAdmin. Confirme sua senha para continuar.'
+          : 'Este projeto está consolidado. Confirme sua senha para continuar.'}
         onConfirmed={() => {
           setShowPasswordModal(false)
           if (pendingEdit) doEdit(pendingEdit)
@@ -332,8 +356,10 @@ export default function ProjetosPage() {
 
       <PasswordConfirmModal
         isOpen={showDeletePasswordModal}
-        title="Confirmar Exclusão de Projeto"
-        description="Esta ação é irreversível. Um extrato completo será salvo na Biblioteca de Documentos antes da exclusão. Confirme sua senha para prosseguir."
+        title={isAdminGeralNome(data.find(p => p.id === pendingDeleteId)?.nome) ? 'Excluir Projeto Especial — ADMINISTRAÇÃO GERAL' : 'Confirmar Exclusão de Projeto'}
+        description={isAdminGeralNome(data.find(p => p.id === pendingDeleteId)?.nome)
+          ? 'O projeto ADMINISTRAÇÃO GERAL tem caráter especial e só pode ser excluído pelo SuperAdmin. Esta ação é irreversível. Um extrato completo será salvo antes da exclusão. Confirme sua senha para prosseguir.'
+          : 'Esta ação é irreversível. Um extrato completo será salvo na Biblioteca de Documentos antes da exclusão. Confirme sua senha para prosseguir.'}
         onConfirmed={handleDeleteConfirmed}
         onCancel={() => { setShowDeletePasswordModal(false); setPendingDeleteId(null) }}
       />

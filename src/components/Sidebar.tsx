@@ -19,6 +19,7 @@ interface NavItem {
   children?: NavItem[]
   newTab?: boolean
   adminOnly?: boolean
+  superAdminOnly?: boolean
 }
 
 const navItems: NavItem[] = [
@@ -44,7 +45,7 @@ const navItems: NavItem[] = [
       { label: 'Contas de Consumo', icon: TrendingDown, href: '/cadastros/despesas/consumo' },
       { label: 'Copa e Cozinha', icon: Utensils, href: '/cadastros/despesas/copa-cozinha' },
       { label: 'Locação de Equipamentos', icon: TrendingDown, href: '/cadastros/despesas/locacao' },
-      { label: 'Prebenda', icon: Banknote, href: '/cadastros/despesas/prebenda' },
+      { label: 'Prebenda', icon: Banknote, href: '/cadastros/despesas/prebenda', superAdminOnly: true },
       { label: 'Serviços Digitais', icon: TrendingDown, href: '/cadastros/despesas/digital' },
       { label: 'Serviços Externos', icon: TrendingDown, href: '/cadastros/despesas/externos' },
     ]
@@ -122,17 +123,20 @@ const navItems: NavItem[] = [
   },
 ]
 
-function NavItemComponent({ item, depth = 0, isAdmin = false }: { item: NavItem; depth?: number; isAdmin?: boolean }) {
+function NavItemComponent({ item, depth = 0, isAdmin = false, isSuperAdmin = false }: { item: NavItem; depth?: number; isAdmin?: boolean; isSuperAdmin?: boolean }) {
   const pathname = usePathname()
   const { prefs } = usePreferences()
 
-  const isDisabled = item.adminOnly && !isAdmin
+  const isDisabled = (item.adminOnly && !isAdmin) || (item.superAdminOnly && !isSuperAdmin)
+  const disabledTitle = item.superAdminOnly && !isSuperAdmin
+    ? 'Acesso restrito ao SuperAdmin'
+    : 'Acesso restrito a administradores'
 
   // Show all children (admin-only ones will render as disabled)
   const visibleChildren = item.children
   const hasChildren = visibleChildren && visibleChildren.length > 0
   const isActive = item.href === pathname
-  const isParentActive = hasChildren && visibleChildren?.some(c => c.href === pathname && (!c.adminOnly || isAdmin))
+  const isParentActive = hasChildren && visibleChildren?.some(c => c.href === pathname && (!c.adminOnly || isAdmin) && (!c.superAdminOnly || isSuperAdmin))
   const [open, setOpen] = useState(() => isParentActive ?? false)
   const itemRef = useRef<HTMLDivElement>(null)
 
@@ -164,7 +168,7 @@ function NavItemComponent({ item, depth = 0, isAdmin = false }: { item: NavItem;
         {open && (
           <div className="ml-3 mt-1 space-y-0.5 border-l-2 border-cream-300 pl-3">
             {visibleChildren!.map(child => (
-              <NavItemComponent key={child.href || child.label} item={child} depth={depth + 1} isAdmin={isAdmin} />
+              <NavItemComponent key={child.href || child.label} item={child} depth={depth + 1} isAdmin={isAdmin} isSuperAdmin={isSuperAdmin} />
             ))}
           </div>
         )}
@@ -176,7 +180,7 @@ function NavItemComponent({ item, depth = 0, isAdmin = false }: { item: NavItem;
     return (
       <div
         className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium opacity-40 cursor-not-allowed select-none text-navy-400"
-        title="Acesso restrito a administradores"
+        title={disabledTitle}
       >
         <item.icon className="w-4 h-4" />
         {item.label}
@@ -202,6 +206,7 @@ export default function Sidebar() {
   const pathname = usePathname()
   const [collapsed, setCollapsed] = useState(false)
   const [isAdmin, setIsAdmin] = useState(false)
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false)
 
   // Sync with preference on mount
   useEffect(() => {
@@ -219,7 +224,11 @@ export default function Sidebar() {
   useEffect(() => {
     fetch('/api/auth/me')
       .then(r => r.ok ? r.json() : null)
-      .then(data => { if (['admin', 'superadmin'].includes(data?.usuario?.role)) setIsAdmin(true) })
+      .then(data => {
+        const role = data?.usuario?.role
+        if (['admin', 'superadmin'].includes(role)) setIsAdmin(true)
+        if (role === 'superadmin') setIsSuperAdmin(true)
+      })
       .catch(() => {})
   }, [])
 
@@ -246,7 +255,7 @@ export default function Sidebar() {
       {!collapsed && (
         <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
           {navItems.map(item => (
-            <NavItemComponent key={item.href || item.label} item={item} isAdmin={isAdmin} />
+            <NavItemComponent key={item.href || item.label} item={item} isAdmin={isAdmin} isSuperAdmin={isSuperAdmin} />
           ))}
         </nav>
       )}

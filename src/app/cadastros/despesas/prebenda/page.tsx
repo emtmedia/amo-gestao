@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect, useCallback } from 'react'
-import { Plus, Banknote, Lock } from 'lucide-react'
+import { Plus, Banknote, Lock, ShieldOff } from 'lucide-react'
 import DataTable from '@/components/ui/DataTable'
 import Modal from '@/components/ui/Modal'
 import BlockErrorModal from '@/components/ui/BlockErrorModal'
@@ -56,6 +56,7 @@ const emptyForm = {
 }
 
 export default function PrebendaPage() {
+  const [isSuperAdmin, setIsSuperAdmin] = useState<boolean | null>(null)
   const [data, setData] = useState<Prebenda[]>([])
   const [contas, setContas] = useState<Conta[]>([])
   const [metodos, setMetodos] = useState<Metodo[]>([])
@@ -73,6 +74,14 @@ export default function PrebendaPage() {
     setToast({ msg, type }); setTimeout(() => setToast(null), 3500)
     setModalAlert({ type, message: msg }); setTimeout(() => setModalAlert(null), 4000)
   }
+
+  // Verificar permissão SuperAdmin
+  useEffect(() => {
+    fetch('/api/auth/me')
+      .then(r => r.ok ? r.json() : null)
+      .then(data => setIsSuperAdmin(data?.usuario?.role === 'superadmin'))
+      .catch(() => setIsSuperAdmin(false))
+  }, [])
 
   // Executar migration ao carregar
   useEffect(() => {
@@ -186,6 +195,20 @@ export default function PrebendaPage() {
     { key: 'bancaNome', label: 'Banco', render: (v: unknown) => v ? String(v) : '—' },
     { key: 'metodoNome', label: 'Método', render: (v: unknown) => v ? String(v) : '—' },
   ]
+
+  if (isSuperAdmin === null) {
+    return <div className="flex items-center justify-center h-64 text-navy-400">Verificando permissões...</div>
+  }
+
+  if (!isSuperAdmin) {
+    return (
+      <div className="flex flex-col items-center justify-center h-64 gap-4 text-center">
+        <ShieldOff className="w-12 h-12 text-navy-300" />
+        <h2 className="text-lg font-semibold text-navy-700">Acesso Restrito</h2>
+        <p className="text-sm text-navy-400 max-w-xs">Esta página é de acesso exclusivo ao perfil SuperAdmin.</p>
+      </div>
+    )
+  }
 
   return (
     <div>

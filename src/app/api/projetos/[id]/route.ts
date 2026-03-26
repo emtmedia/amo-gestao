@@ -16,6 +16,16 @@ export async function GET(_: NextRequest, { params }: { params: { id: string } }
 
 export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
   try {
+    const session = await getSession()
+    const existing = await prisma.projetoFilantropia.findUnique({ where: { id: params.id }, select: { nome: true } })
+    if (existing?.nome?.trim().toUpperCase() === 'ADMINISTRAÇÃO GERAL') {
+      if (!session || session.role !== 'superadmin') {
+        return NextResponse.json(
+          { success: false, error: 'Acesso negado. O projeto ADMINISTRAÇÃO GERAL só pode ser editado pelo SuperAdmin.' },
+          { status: 403 }
+        )
+      }
+    }
     const body = await request.json()
     if (body.dataInicio) body.dataInicio = new Date(body.dataInicio).toISOString()
     if (body.dataEncerramento) body.dataEncerramento = new Date(body.dataEncerramento).toISOString()
@@ -42,6 +52,14 @@ export async function DELETE(_: NextRequest, { params }: { params: { id: string 
     // 2. Verificar existência
     const projeto = await prisma.projetoFilantropia.findUnique({ where: { id: params.id } })
     if (!projeto) return NextResponse.json({ success: false, error: 'Projeto não encontrado' }, { status: 404 })
+
+    // 2a. Projeto especial: apenas SuperAdmin pode excluir
+    if (projeto.nome?.trim().toUpperCase() === 'ADMINISTRAÇÃO GERAL' && session.role !== 'superadmin') {
+      return NextResponse.json(
+        { success: false, error: 'Acesso negado. O projeto ADMINISTRAÇÃO GERAL só pode ser excluído pelo SuperAdmin.' },
+        { status: 403 }
+      )
+    }
 
     // 3. Gerar extrato PDF e salvar na Biblioteca de Documentos
     const { documentoId, titulo } = await generateProjetoExtrato(params.id, session.nome)

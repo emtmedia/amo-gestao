@@ -181,7 +181,7 @@ function AuxiliaresPageInner() {
         ) : (
           <div className="divide-y divide-cream-100">
             {currentItems.map((item) => (
-              <div key={item.id} className="flex items-center justify-between py-2.5 px-1 hover:bg-cream-50 rounded-lg transition-colors group">
+              <div key={item.id} className="flex items-center justify-between py-2.5 px-1 hover:bg-cream-200 rounded-lg transition-colors group">
                 {editingId === item.id ? (
                   <div className="flex items-center gap-2 flex-1">
                     <input

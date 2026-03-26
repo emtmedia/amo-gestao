@@ -1,10 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { logAudit } from '@/lib/audit'
+import { getSession } from '@/lib/session'
 import prisma from '@/lib/prisma'
 
 export const dynamic = 'force-dynamic'
 
 export async function GET(_: NextRequest, { params }: { params: { id: string } }) {
+  const session = await getSession()
+  if (!session || session.role !== 'superadmin') {
+    return NextResponse.json({ success: false, error: 'Acesso negado.' }, { status: 403 })
+  }
   try {
     const rows = await prisma.$queryRawUnsafe<any[]>(
       `SELECT * FROM "DespesaPrebenda" WHERE id = $1`, params.id
@@ -17,6 +22,10 @@ export async function GET(_: NextRequest, { params }: { params: { id: string } }
 }
 
 export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
+  const session = await getSession()
+  if (!session || session.role !== 'superadmin') {
+    return NextResponse.json({ success: false, error: 'Acesso negado.' }, { status: 403 })
+  }
   try {
     const body = await request.json()
     await prisma.$executeRawUnsafe(
@@ -55,6 +64,10 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
 }
 
 export async function DELETE(_: NextRequest, { params }: { params: { id: string } }) {
+  const session = await getSession()
+  if (!session || session.role !== 'superadmin') {
+    return NextResponse.json({ success: false, error: 'Acesso negado.' }, { status: 403 })
+  }
   try {
     // Buscar o registro
     const rows = await prisma.$queryRawUnsafe<any[]>(

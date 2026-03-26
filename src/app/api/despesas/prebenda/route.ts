@@ -1,10 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { logAudit } from '@/lib/audit'
+import { getSession } from '@/lib/session'
 import prisma from '@/lib/prisma'
 
 export const dynamic = 'force-dynamic'
 
 export async function GET() {
+  const session = await getSession()
+  if (!session || session.role !== 'superadmin') {
+    return NextResponse.json({ success: false, error: 'Acesso negado. Apenas SuperAdmin pode acessar Prebenda.' }, { status: 403 })
+  }
   try {
     const items = await prisma.$queryRawUnsafe<any[]>(`
       SELECT p.*,
@@ -27,6 +32,10 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
+  const session = await getSession()
+  if (!session || session.role !== 'superadmin') {
+    return NextResponse.json({ success: false, error: 'Acesso negado. Apenas SuperAdmin pode registrar Prebenda.' }, { status: 403 })
+  }
   try {
     const body = await request.json()
     const id = crypto.randomUUID()
