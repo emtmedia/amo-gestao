@@ -235,7 +235,7 @@ function CardReceita({ d }: { d: any }) {
         <div className="flex flex-wrap gap-3 mt-1">
           <Meta label="Data" value={fmtDate(d.data)} />
           {d.projeto && <Meta label="Projeto" value={d.projeto} />}
-          {d.evento && <Meta label="Evento" value={d.evento} />}
+          <Meta label="Evento" value={d.evento ?? 'Sem Evento'} />
         </div>
       </div>
     </Row>
@@ -255,7 +255,7 @@ function CardDespesa({ d }: { d: any }) {
         <div className="flex flex-wrap gap-3 mt-1">
           <Meta label="Data" value={fmtDate(d.data)} />
           {d.projeto && <Meta label="Projeto" value={d.projeto} />}
-          {d.evento && <Meta label="Evento" value={d.evento} />}
+          <Meta label="Evento" value={d.evento ?? 'Sem Evento'} />
         </div>
       </div>
     </Row>
