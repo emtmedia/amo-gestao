@@ -1,0 +1,31 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ls:*)",
+      "Bash(grep -l \"FileUpload\" src/**/*.tsx)",
+      "Bash(npx tsc:*)",
+      "mcp__claude_ai_Vercel__list_deployments",
+      "Bash(where vercel:*)",
+      "Bash(npx vercel:*)",
+      "Bash(vercel --prod --yes)",
+      "Bash(npx prisma:*)",
+      "mcp__claude_ai_Vercel__deploy_to_vercel",
+      "Bash(vercel deploy:*)",
+      "Bash(xargs grep:*)",
+      "Bash(node -e \"const l = require\\(''lucide-react''\\); console.log\\(typeof l.Inbox, typeof l.Banknote, typeof l.DollarSign\\)\")",
+      "Bash(node:*)",
+      "Bash(npm --version)",
+      "mcp__claude_ai_Vercel__get_runtime_logs",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(head:*)",
+      "Bash(grep -v \"//\")",
+      "Bash(npm install:*)",
+      "Bash(grep -r \"ADMINISTRAÇÃO GERAL\\\\|administracao geral\" --include=*.ts --include=*.tsx --include=*.js --include=*.jsx)",
+      "Bash(grep -r \"ADMINISTRAÇÃO\\\\|administra\" --include=*.ts --include=*.tsx src/app/cadastros/projetos/)",
+      "Bash(vercel --version)",
+      "Bash(vercel --prod)"
+    ]
+  }
+}

@@ -118,7 +118,7 @@ function printRelatorio(
     </tr>
   `).join('')
 
-  const projetoDisplay = projetoNome ?? 'Administração Geral'
+  const projetoDisplay = projetoNome ?? '—'
   const secaoVinculacao = `
     <div class="section">
       <div class="section-title">◆ Vinculação — Projeto &amp; Evento</div>
@@ -945,7 +945,7 @@ export default function ChequeReciboPage() {
                     )}
                     <div>
                       <span className="text-navy-400 text-xs font-medium block">Projeto</span>
-                      <span className="text-navy-800 text-xs font-medium">{cr.projetoNome ?? 'Administração Geral'}</span>
+                      <span className="text-navy-800 text-xs font-medium">{cr.projetoNome ?? '—'}</span>
                     </div>
                     {cr.eventoNome && (
                       <div>
@@ -1240,7 +1240,7 @@ export default function ChequeReciboPage() {
                 }}
                 className="form-input"
               >
-                <option value="">Administração Geral</option>
+                <option value="">Selecione...</option>
                 {projetos.map(p => (
                   <option key={p.id} value={p.id}>{p.nome}</option>
                 ))}

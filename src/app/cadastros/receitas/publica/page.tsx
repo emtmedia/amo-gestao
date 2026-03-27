@@ -296,7 +296,7 @@ export default function ReceitaPublicaPage() {
             <label>Projeto Relacionado<span className="required-star">*</span></label>
             <select value={form.projetoDirecionado} onChange={e => setForm(p => ({ ...p, projetoDirecionado: e.target.value }))} className="form-input">
               <option value="">Selecione...</option>
-              <option value="Receita Geral">Receita Geral</option>
+
               {projetos.map(p => <option key={p.id} value={p.id}>{p.nome}</option>)}
             </select>
           </div>
@@ -305,7 +305,7 @@ export default function ReceitaPublicaPage() {
             <label>Evento Relacionado<span className="required-star">*</span></label>
             <select value={form.eventoDirecionado} onChange={e => setForm(p => ({ ...p, eventoDirecionado: e.target.value }))} className="form-input">
               <option value="">Selecione...</option>
-              <option value="Receita Geral">Receita Geral</option>
+
               {filteredEventos.map(e => <option key={e.id} value={e.id}>{e.nome}</option>)}
             </select>
           </div>

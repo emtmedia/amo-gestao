@@ -370,6 +370,40 @@ async function getChequeRecibos(
   return data
 }
 
+// ─── EVENTOS AVULSOS ──────────────────────────────────────────────────────────
+async function getEventosAvulsos(ano?: string | null, mes?: string | null, status?: string | null) {
+  const items = await prisma.evento.findMany({
+    where: {
+      projetoVinculadoId: null,
+      ...dateWhere('dataInicio', ano, mes),
+    },
+    orderBy: { dataInicio: 'desc' },
+    include: {
+      consolidacao: { select: { id: true, saldoOrcamento: true, dataConclusaoReal: true } },
+    },
+  })
+  const data = items.map(e => ({
+    id: e.id,
+    nome: e.nome,
+    dataInicio: e.dataInicio,
+    dataEncerramento: e.dataEncerramento,
+    responsavel: e.responsavel,
+    emailResponsavel: e.emailResponsavel,
+    telefoneResponsavel: e.telefoneResponsavel,
+    orcamentoEstimado: e.orcamentoEstimado,
+    numeroVoluntarios: e.numeroVoluntarios,
+    cidadeRealizacao: e.cidadeRealizacao,
+    estadoRealizacao: e.estadoRealizacao,
+    comentarios: e.comentarios,
+    status: !e.consolidacao ? 'ativo'
+      : (e.consolidacao.saldoOrcamento ?? 0) >= 0 ? 'consolidado_ok' : 'consolidado_pendente',
+    consolidadoEm: e.consolidacao?.dataConclusaoReal ?? null,
+  }))
+  if (!status || status === 'all') return data
+  if (status === 'ativo') return data.filter(d => d.status === 'ativo')
+  return data.filter(d => d.status !== 'ativo')
+}
+
 // ─── HANDLER ──────────────────────────────────────────────────────────────────
 export async function GET(req: NextRequest, { params }: { params: { tipo: string } }) {
   const sp = new URL(req.url).searchParams
@@ -397,7 +431,8 @@ export async function GET(req: NextRequest, { params }: { params: { tipo: string
       case 'despesas':         data = await getDespesas(ano, mes, projetoNome, eventoNome); break
       case 'fornecedores':     data = await getFornecedores(categoriaId, subcategoriaId); break
       case 'colaboradores':    data = await getColaboradores(tipoPessoa); break
-      case 'cheque-recibos':   data = await getChequeRecibos(ano, mes, assinatura, saldo, recebedor); break
+      case 'cheque-recibos':    data = await getChequeRecibos(ano, mes, assinatura, saldo, recebedor); break
+      case 'eventos-avulsos':   data = await getEventosAvulsos(ano, mes, status); break
       default:
         return NextResponse.json({ success: false, error: 'Tipo de relatório inválido' }, { status: 400 })
     }

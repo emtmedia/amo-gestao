@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import {
   FolderOpen, Users, ClipboardList, Receipt, TrendingUp, TrendingDown,
   Handshake, Briefcase, Banknote, Sparkles, ArrowLeft, Loader2,
-  Calendar, BarChart2, CheckCircle2, Clock, ChevronRight, X
+  Calendar, BarChart2, Clock, ChevronRight
 } from 'lucide-react'
 import Link from 'next/link'
 
@@ -32,6 +32,7 @@ const RELATORIOS: RelatorioConfig[] = [
   { id: 'fornecedores',     label: 'Fornecedores',            icon: Handshake,     desc: 'Cadastro completo de fornecedores',             filters: ['categoria'] },
   { id: 'colaboradores',    label: 'Colaboradores',           icon: Briefcase,     desc: 'Equipe CLT e PJ',                               filters: ['tipo_pessoa'] },
   { id: 'cheque-recibos',   label: 'Cheque-Recibos',          icon: Banknote,      desc: 'Saídas em espécie com prestação de contas',     filters: ['ano_mes', 'assinatura', 'saldo', 'recebedor'] },
+  { id: 'eventos-avulsos',  label: 'Eventos Avulsos',         icon: Calendar,      desc: 'Eventos sem projeto vinculado',                  filters: ['ano_mes', 'status'] },
 ]
 
 const MESES = [
@@ -335,6 +336,30 @@ function CardChequeRecibo({ d }: { d: any }) {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
+function CardEventoAvulso({ d }: { d: any }) {
+  const cor = d.status === 'ativo' ? 'bg-blue-50 text-blue-700' : d.status === 'consolidado_ok' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'
+  const label = d.status === 'ativo' ? 'Ativo' : d.status === 'consolidado_ok' ? 'Consolidado' : 'Consolidado c/ pendência'
+  return (
+    <Row>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="font-medium text-sm text-gray-900 truncate">{d.nome}</span>
+          <Badge text={label} color={cor} />
+        </div>
+        <div className="flex flex-wrap gap-3 mt-1">
+          <Meta label="Início" value={fmtDate(d.dataInicio)} />
+          <Meta label="Encerramento" value={fmtDate(d.dataEncerramento)} />
+          <Meta label="Responsável" value={d.responsavel} />
+          <Meta label="Orçamento" value={fmtMoney(d.orcamentoEstimado)} />
+          {d.numeroVoluntarios != null && <Meta label="Voluntários" value={d.numeroVoluntarios} />}
+          {d.cidadeRealizacao && <Meta label="Local" value={`${d.cidadeRealizacao}${d.estadoRealizacao ? ` / ${d.estadoRealizacao}` : ''}`} />}
+        </div>
+      </div>
+    </Row>
+  )
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function renderCards(tipo: string, data: any[]) {
   if (!data?.length) return <p className="text-sm text-gray-400 text-center py-8">Nenhum registro encontrado com os filtros aplicados.</p>
   switch (tipo) {
@@ -348,6 +373,7 @@ function renderCards(tipo: string, data: any[]) {
     case 'fornecedores':     return data.map(d => <CardFornecedor key={d.id} d={d} />)
     case 'colaboradores':    return data.map(d => <CardColaborador key={d.id} d={d} />)
     case 'cheque-recibos':   return data.map(d => <CardChequeRecibo key={d.id} d={d} />)
+    case 'eventos-avulsos':  return data.map(d => <CardEventoAvulso key={d.id} d={d} />)
     default:                 return null
   }
 }
@@ -378,6 +404,7 @@ function RelatoriosInner() {
   const [subcategorias, setSubcategorias] = useState<{ id: string; categoriaId: string; nome: string }[]>([])
   const [projetos, setProjetos] = useState<{ id: string; nome: string }[]>([])
   const [eventos, setEventos] = useState<{ id: string; nome: string }[]>([])
+  const [recebedores, setRecebedores] = useState<string[]>([])
 
   // Estado do relatório
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -395,6 +422,9 @@ function RelatoriosInner() {
         if (c.success) setCategorias(c.data)
         if (s.success) setSubcategorias(s.data)
       })
+    }
+    if (relConfig?.filters.includes('recebedor')) {
+      fetch('/api/relatorios/recebedores').then(r => r.json()).then(j => { if (j.success) setRecebedores(j.data) })
     }
     if (relConfig?.filters.includes('projeto_evento')) {
       Promise.all([
@@ -647,16 +677,11 @@ function RelatoriosInner() {
           {hasFilter?.includes('recebedor') && (
             <div className="flex flex-col gap-0.5">
               <label className="text-xs text-gray-400">Recebedor</label>
-              <div className="relative">
-                <input type="text" value={recebedor} onChange={e => setRecebedor(e.target.value)}
-                  placeholder="Nome do recebedor"
-                  className="border border-gray-200 rounded px-2 py-1.5 text-sm text-gray-800 bg-white focus:outline-none focus:border-navy-400 pr-6 w-44" />
-                {recebedor && (
-                  <button onClick={() => setRecebedor('')} className="absolute right-1.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
-                    <X className="w-3.5 h-3.5" />
-                  </button>
-                )}
-              </div>
+              <select value={recebedor} onChange={e => setRecebedor(e.target.value)}
+                className="border border-gray-200 rounded px-2 py-1.5 text-sm text-gray-800 bg-white focus:outline-none focus:border-navy-400 max-w-[200px]">
+                <option value="">Todos</option>
+                {recebedores.map(r => <option key={r} value={r}>{r}</option>)}
+              </select>
             </div>
           )}
 
