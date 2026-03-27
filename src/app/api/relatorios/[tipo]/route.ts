@@ -191,20 +191,17 @@ async function getReceitas(
   projetoNome?: string | null, eventoNome?: string | null
 ) {
   const dw = dateWhere('dataEntrada', ano, mes)
-  const projetoFilter = projetoNome ? { projetoDirecionado: { contains: projetoNome, mode: 'insensitive' as const } } : {}
-  const eventoFilter = eventoNome ? { eventoDirecionado: { contains: eventoNome, mode: 'insensitive' as const } } : {}
-  const vinculoFilter = projetoNome ? projetoFilter : eventoNome ? eventoFilter : {}
 
   const [pf, pj, publica, cursos, produtos, servicos, eventoRec, outras,
     todosCursos, todosProdutos, todosServicos, todosEventos, todosProjs] = await Promise.all([
-    prisma.receitaPessoaFisica.findMany({ where: { ...dw, ...vinculoFilter }, orderBy: { dataEntrada: 'desc' } }),
-    prisma.receitaPessoaJuridica.findMany({ where: { ...dw, ...vinculoFilter }, orderBy: { dataEntrada: 'desc' } }),
-    prisma.receitaPublica.findMany({ where: { ...dw, ...vinculoFilter }, orderBy: { dataEntrada: 'desc' } }),
-    prisma.receitaCurso.findMany({ where: { ...dw, ...vinculoFilter }, orderBy: { dataEntrada: 'desc' } }),
-    prisma.receitaProduto.findMany({ where: { ...dw, ...vinculoFilter }, orderBy: { dataEntrada: 'desc' } }),
-    prisma.receitaServico.findMany({ where: { ...dw, ...vinculoFilter }, orderBy: { dataEntrada: 'desc' } }),
-    prisma.receitaEvento.findMany({ where: { ...dw, ...vinculoFilter }, orderBy: { dataEntrada: 'desc' } }),
-    prisma.outraReceita.findMany({ where: { ...dw, ...vinculoFilter }, orderBy: { dataEntrada: 'desc' } }),
+    prisma.receitaPessoaFisica.findMany({ where: dw, orderBy: { dataEntrada: 'desc' } }),
+    prisma.receitaPessoaJuridica.findMany({ where: dw, orderBy: { dataEntrada: 'desc' } }),
+    prisma.receitaPublica.findMany({ where: dw, orderBy: { dataEntrada: 'desc' } }),
+    prisma.receitaCurso.findMany({ where: dw, orderBy: { dataEntrada: 'desc' } }),
+    prisma.receitaProduto.findMany({ where: dw, orderBy: { dataEntrada: 'desc' } }),
+    prisma.receitaServico.findMany({ where: dw, orderBy: { dataEntrada: 'desc' } }),
+    prisma.receitaEvento.findMany({ where: dw, orderBy: { dataEntrada: 'desc' } }),
+    prisma.outraReceita.findMany({ where: dw, orderBy: { dataEntrada: 'desc' } }),
     prisma.cursoTreinamento.findMany({ select: { id: true, nome: true } }),
     prisma.produto.findMany({ select: { id: true, nome: true } }),
     prisma.servico.findMany({ select: { id: true, nome: true } }),
@@ -222,7 +219,7 @@ async function getReceitas(
   const rProj = (v: string | null | undefined) => (v ? (projMap2[v] ?? null) : null)
   const rEvt  = (v: string | null | undefined) => (v ? (evMap2[v]   ?? null) : null)
 
-  return [
+  let result = [
     ...pf.map(r => ({ id: r.id, categoria: 'Pessoa Física', descricao: r.nomeContribuinte, valor: r.valorContribuicao, data: r.dataEntrada, projeto: rProj(r.projetoDirecionado), evento: rEvt(r.eventoDirecionado) })),
     ...pj.map(r => ({ id: r.id, categoria: 'Pessoa Jurídica', descricao: r.nomeEmpresa, valor: r.valorContribuicao, data: r.dataEntrada, projeto: rProj(r.projetoDirecionado), evento: rEvt(r.eventoDirecionado) })),
     ...publica.map(r => ({ id: r.id, categoria: 'Receita Pública', descricao: r.nomeOrgao, valor: r.valorRecurso, data: r.dataEntrada, projeto: rProj(r.projetoDirecionado), evento: rEvt(r.eventoDirecionado) })),
@@ -232,6 +229,10 @@ async function getReceitas(
     ...eventoRec.map(r => ({ id: r.id, categoria: 'Eventos c/ Bilheteria', descricao: evMap2[r.eventoId] ?? r.eventoId, valor: r.valorReceita, data: r.dataEntrada, projeto: rProj(r.projetoDirecionado), evento: rEvt(r.eventoDirecionado) })),
     ...outras.map(r => ({ id: r.id, categoria: 'Outras Receitas', descricao: r.nomeContribuinte, valor: r.valorContribuicao, data: r.dataEntrada, projeto: rProj(r.projetoDirecionado), evento: rEvt(r.eventoDirecionado) })),
   ].sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime())
+
+  if (projetoNome) result = result.filter(r => r.projeto?.toLowerCase().includes(projetoNome.toLowerCase()))
+  if (eventoNome)  result = result.filter(r => r.evento?.toLowerCase().includes(eventoNome.toLowerCase()))
+  return result
 }
 
 // ─── DESPESAS ────────────────────────────────────────────────────────────────
@@ -240,16 +241,13 @@ async function getDespesas(
   projetoNome?: string | null, eventoNome?: string | null
 ) {
   const dw = dateWhere('dataPagamento', ano, mes)
-  const projetoFilter = projetoNome ? { projetoDirecionado: { contains: projetoNome, mode: 'insensitive' as const } } : {}
-  const eventoFilter = eventoNome ? { eventoDirecionado: { contains: eventoNome, mode: 'insensitive' as const } } : {}
-  const vinculoFilter = projetoNome ? projetoFilter : eventoNome ? eventoFilter : {}
 
   const [consumo, digital, locacao, externo, copa, conservacao, todosForns, todosProjs, todosEventos] = await Promise.all([
-    prisma.despesaConsumo.findMany({ where: { ...dw, ...vinculoFilter }, orderBy: { dataPagamento: 'desc' } }),
-    prisma.despesaDigital.findMany({ where: { ...dw, ...vinculoFilter }, orderBy: { dataPagamento: 'desc' } }),
-    prisma.despesaLocacao.findMany({ where: { ...dw, ...vinculoFilter }, orderBy: { dataPagamento: 'desc' } }),
-    prisma.despesaServicoExterno.findMany({ where: { ...dw, ...vinculoFilter }, orderBy: { dataPagamento: 'desc' } }),
-    prisma.despesaCopaCozinha.findMany({ where: { ...dw, ...vinculoFilter }, orderBy: { dataPagamento: 'desc' } }),
+    prisma.despesaConsumo.findMany({ where: dw, orderBy: { dataPagamento: 'desc' } }),
+    prisma.despesaDigital.findMany({ where: dw, orderBy: { dataPagamento: 'desc' } }),
+    prisma.despesaLocacao.findMany({ where: dw, orderBy: { dataPagamento: 'desc' } }),
+    prisma.despesaServicoExterno.findMany({ where: dw, orderBy: { dataPagamento: 'desc' } }),
+    prisma.despesaCopaCozinha.findMany({ where: dw, orderBy: { dataPagamento: 'desc' } }),
     prisma.despesaConservacao.findMany({ where: dw, orderBy: { dataPagamento: 'desc' } }),
     prisma.fornecedor.findMany({ select: { id: true, nome: true } }),
     prisma.projetoFilantropia.findMany({ select: { id: true, nome: true } }),
@@ -263,7 +261,7 @@ async function getDespesas(
   const rProj = (v: string | null | undefined) => (v ? (projMap[v] ?? null) : null)
   const rEvt  = (v: string | null | undefined) => (v ? (evMap[v]   ?? null) : null)
 
-  return [
+  let result = [
     ...consumo.map(d => ({ id: d.id, categoria: 'Contas de Consumo', fornecedor: fornMap[d.fornecedorId] ?? '—', valor: d.valorTitulo, data: d.dataPagamento, projeto: rProj(d.projetoDirecionado), evento: rEvt(d.eventoDirecionado) })),
     ...digital.map(d => ({ id: d.id, categoria: 'Serviços Digitais', fornecedor: fornMap[d.fornecedorId] ?? '—', valor: d.valorTitulo, data: d.dataPagamento, projeto: rProj(d.projetoDirecionado), evento: rEvt(d.eventoDirecionado) })),
     ...locacao.map(d => ({ id: d.id, categoria: 'Locação de Equip.', fornecedor: fornMap[d.fornecedorId] ?? '—', valor: d.valorLocacao, data: d.dataPagamento, projeto: rProj(d.projetoDirecionado), evento: rEvt(d.eventoDirecionado) })),
@@ -271,6 +269,10 @@ async function getDespesas(
     ...copa.map(d => ({ id: d.id, categoria: 'Copa e Cozinha', fornecedor: fornMap[d.fornecedorId] ?? '—', valor: d.valorPagamento, data: d.dataPagamento, projeto: rProj(d.projetoDirecionado), evento: rEvt(d.eventoDirecionado) })),
     ...conservacao.map(d => ({ id: d.id, categoria: 'Conservação/Zeladoria', fornecedor: d.nomeFornecedor, valor: d.valorTitulo, data: d.dataPagamento, projeto: null, evento: null })),
   ].sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime())
+
+  if (projetoNome) result = result.filter(r => r.projeto?.toLowerCase().includes(projetoNome.toLowerCase()))
+  if (eventoNome)  result = result.filter(r => r.evento?.toLowerCase().includes(eventoNome.toLowerCase()))
+  return result
 }
 
 // ─── FORNECEDORES ─────────────────────────────────────────────────────────────
