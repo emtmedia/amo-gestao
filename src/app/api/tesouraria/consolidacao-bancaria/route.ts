@@ -57,11 +57,12 @@ REGRAS DE CLASSIFICAÇÃO:
 4. EXCLUIR como débito: transferências PARA conta de investimento própria (poupança, CDB, LCI, LCA, tesouro direto)
 5. EXCLUIR como crédito: resgates DE conta de investimento própria para conta corrente
 
-REGRAS PARA O CAMPO "key" (apenas para débitos reais):
-- Extraia o código/tipo de operação da descrição do lançamento — é o prefixo padronizado que aparece antes dos detalhes do beneficiário.
-- Exemplos: "PIX EMIT.OUTRA IF", "DÉB.TIT.COMPE.EFETI", "DB.TR.C.DIF.TIT.INT", "TARIFA", "IOF", "ENCARGOS LIMITE", "GASTOS CARTAO DE CREDITO"
+REGRAS PARA O CAMPO "key" (para débitos E créditos reais):
+- Extraia o código/tipo de operação da descrição do lançamento — é o prefixo padronizado que aparece antes dos detalhes do remetente/beneficiário.
+- Exemplos débito: "PIX EMIT.OUTRA IF", "DÉB.TIT.COMPE.EFETI", "DB.TR.C.DIF.TIT.INT", "TARIFA", "IOF", "ENCARGOS LIMITE", "GASTOS CARTAO DE CREDITO"
+- Exemplos crédito: "TRANSFERENCIA PIX REM", "TED RECEBIDA", "PIX RECEBIDO", "CREDITO SALARIO", "DOC RECEBIDO"
 - Use exatamente o texto do extrato, sem acrescentar nada. Se não houver código identificável, use a primeira parte significativa da descrição.
-- Para créditos e neutros, "key" deve ser null.
+- Para neutros, "key" deve ser null.
 
 Retorne SOMENTE JSON válido, sem markdown, sem texto extra, no seguinte formato:
 {

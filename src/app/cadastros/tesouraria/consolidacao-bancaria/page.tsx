@@ -266,6 +266,68 @@ function buildDebitGroups(transactions: Transaction[]): DebitGroup[] {
   return Array.from(map.values()).sort((a, b) => b.subtotal - a.subtotal)
 }
 
+function CreditGroupsSection({ transactions, totalCredits }: { transactions: Transaction[]; totalCredits: number }) {
+  const [open, setOpen] = useState(true)
+
+  const map = new Map<string, { key: string; items: (Transaction & { label: string })[]; subtotal: number }>()
+  for (const tx of transactions) {
+    if (tx.type !== 'credit' || !tx.label) continue
+    const key = tx.key ?? 'OUTROS'
+    if (!map.has(key)) map.set(key, { key, items: [], subtotal: 0 })
+    const g = map.get(key)!
+    g.items.push(tx as Transaction & { label: string })
+    g.subtotal += tx.credit ?? 0
+  }
+  const groups = Array.from(map.values()).sort((a, b) => b.subtotal - a.subtotal)
+  if (groups.length === 0) return null
+
+  return (
+    <div className="border-t border-cream-200 bg-white shrink-0">
+      <button onClick={() => setOpen(p => !p)}
+        className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-cream-50 transition-colors">
+        <div className="flex items-center gap-2">
+          <TrendingUp className="w-3.5 h-3.5 text-green-600" />
+          <span className="text-xs font-bold text-navy-800 uppercase tracking-wide">Agrupamento por Tipo de Crédito</span>
+          <span className="text-[10px] bg-green-100 text-green-700 px-1.5 py-0.5 rounded-full">{groups.length} grupos</span>
+        </div>
+        {open ? <ChevronUp className="w-3.5 h-3.5 text-navy-400" /> : <ChevronDown className="w-3.5 h-3.5 text-navy-400" />}
+      </button>
+
+      {open && (
+        <div className="px-4 pb-4 space-y-2">
+          {groups.map(g => (
+            <div key={g.key} className="border border-green-200 rounded-lg overflow-hidden">
+              <div className="flex items-center justify-between bg-green-50 px-3 py-1.5">
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-mono font-bold text-green-800 bg-green-100 border border-green-300 px-1.5 py-0.5 rounded">{g.items.length}x</span>
+                  <span className="text-xs font-semibold text-navy-700">{g.key}</span>
+                </div>
+                <span className="text-xs font-bold text-green-700">{fmt(g.subtotal)}</span>
+              </div>
+              <div className="divide-y divide-green-100">
+                {g.items.map(tx => (
+                  <div key={tx.label} className="flex items-center justify-between px-3 py-1 bg-green-50/30">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="text-[10px] font-bold font-mono text-green-700 bg-green-200 border border-green-300 px-1 py-0.5 rounded shrink-0">{tx.label}</span>
+                      <span className="text-[11px] text-navy-600 truncate">{tx.description}</span>
+                      <span className="text-[10px] text-navy-400 shrink-0 whitespace-nowrap">{tx.date}</span>
+                    </div>
+                    <span className="text-xs font-medium text-green-700 shrink-0 ml-2">{fmt(tx.credit)}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+          <div className="flex items-center justify-between bg-green-800 text-white rounded-lg px-3 py-2 mt-1">
+            <span className="text-xs font-bold uppercase tracking-wide">Total Créditos</span>
+            <span className="text-sm font-bold">{fmt(totalCredits)}</span>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 function DebitGroupsSection({ transactions, totalDebits }: { transactions: Transaction[]; totalDebits: number }) {
   const [open, setOpen] = useState(true)
   const groups = buildDebitGroups(transactions)
@@ -412,6 +474,9 @@ function ResultsPanel({ result, onClear }: { result: AnalysisResult; onClear: ()
 
       {/* Debit groups */}
       <DebitGroupsSection transactions={result.transactions} totalDebits={result.summary.totalDebits} />
+
+      {/* Credit groups */}
+      <CreditGroupsSection transactions={result.transactions} totalCredits={result.summary.totalCredits} />
     </div>
   )
 }
