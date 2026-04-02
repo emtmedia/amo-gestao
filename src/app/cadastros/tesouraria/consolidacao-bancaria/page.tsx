@@ -14,6 +14,7 @@ interface Transaction {
   credit: number | null
   balance: number | null
   type: 'debit' | 'credit' | 'neutral'
+  key: string | null
   label: string | null
   reason: string
 }
@@ -266,6 +267,87 @@ function TransactionRow({ tx, index }: { tx: Transaction; index: number }) {
   )
 }
 
+interface DebitGroup {
+  key: string
+  items: (Transaction & { label: string })[]
+  subtotal: number
+}
+
+function buildDebitGroups(transactions: Transaction[]): DebitGroup[] {
+  const map = new Map<string, DebitGroup>()
+  for (const tx of transactions) {
+    if (tx.type !== 'debit' || !tx.label) continue
+    const key = tx.key ?? 'OUTROS'
+    if (!map.has(key)) map.set(key, { key, items: [], subtotal: 0 })
+    const g = map.get(key)!
+    g.items.push(tx as Transaction & { label: string })
+    g.subtotal += tx.debit ?? 0
+  }
+  return Array.from(map.values()).sort((a, b) => b.subtotal - a.subtotal)
+}
+
+function DebitGroupsSection({ transactions, totalDebits }: { transactions: Transaction[]; totalDebits: number }) {
+  const [open, setOpen] = useState(true)
+  const groups = buildDebitGroups(transactions)
+  if (groups.length === 0) return null
+
+  return (
+    <div className="border-t border-cream-200 bg-white shrink-0">
+      <button
+        onClick={() => setOpen(p => !p)}
+        className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-cream-50 transition-colors"
+      >
+        <div className="flex items-center gap-2">
+          <TrendingDown className="w-3.5 h-3.5 text-red-500" />
+          <span className="text-xs font-bold text-navy-800 uppercase tracking-wide">Agrupamento por Tipo de Débito</span>
+          <span className="text-[10px] bg-red-100 text-red-600 px-1.5 py-0.5 rounded-full">{groups.length} grupos</span>
+        </div>
+        {open ? <ChevronUp className="w-3.5 h-3.5 text-navy-400" /> : <ChevronDown className="w-3.5 h-3.5 text-navy-400" />}
+      </button>
+
+      {open && (
+        <div className="px-4 pb-4 space-y-2">
+          {groups.map((g) => (
+            <div key={g.key} className="border border-yellow-200 rounded-lg overflow-hidden">
+              {/* Group header */}
+              <div className="flex items-center justify-between bg-yellow-50 px-3 py-1.5">
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-mono font-bold text-yellow-800 bg-yellow-100 border border-yellow-300 px-1.5 py-0.5 rounded">
+                    {g.items.length}x
+                  </span>
+                  <span className="text-xs font-semibold text-navy-700">{g.key}</span>
+                </div>
+                <span className="text-xs font-bold text-red-600">{fmt(g.subtotal)}</span>
+              </div>
+              {/* Group rows */}
+              <div className="divide-y divide-yellow-100">
+                {g.items.map((tx) => (
+                  <div key={tx.label} className="flex items-center justify-between px-3 py-1 bg-yellow-50/30">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="text-[10px] font-bold font-mono text-yellow-700 bg-yellow-200 border border-yellow-300 px-1 py-0.5 rounded shrink-0">
+                        {tx.label}
+                      </span>
+                      <span className="text-[11px] text-navy-600 truncate">{tx.description}</span>
+                      <span className="text-[10px] text-navy-400 shrink-0 whitespace-nowrap">{tx.date}</span>
+                    </div>
+                    <span className="text-xs font-medium text-red-600 shrink-0 ml-2">{fmt(tx.debit)}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+
+          {/* Grand total */}
+          <div className="flex items-center justify-between bg-navy-800 text-white rounded-lg px-3 py-2 mt-1">
+            <span className="text-xs font-bold uppercase tracking-wide">Total Débitos</span>
+            <span className="text-sm font-bold">{fmt(totalDebits)}</span>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 function ResultsPanel({ result, onClear }: { result: AnalysisResult; onClear: () => void }) {
   const net = result.summary.totalCredits - result.summary.totalDebits
 
@@ -370,6 +452,12 @@ function ResultsPanel({ result, onClear }: { result: AnalysisResult; onClear: ()
           </div>
         </div>
       )}
+
+      {/* Debit groups */}
+      <DebitGroupsSection
+        transactions={result.transactions}
+        totalDebits={result.summary.totalDebits}
+      />
     </div>
   )
 }
