@@ -112,6 +112,7 @@ const navItems: NavItem[] = [
   {
     label: 'Tesouraria', icon: Landmark, adminOnly: true,
     children: [
+      { label: 'Resumo Financeiro', icon: BarChart2, href: '/cadastros/tesouraria/resumo-financeiro', adminOnly: true },
       { label: 'Consolidação Bancária', icon: CreditCard, href: '/cadastros/tesouraria/consolidacao-bancaria', adminOnly: true },
     ]
   },

@@ -3,25 +3,23 @@
 import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import {
-  Building2, Users, FolderOpen, Calendar, TrendingUp, TrendingDown,
+  Building2, Users, FolderOpen, Calendar,
   Handshake, FileText, RefreshCw, AlertCircle, ArrowUpRight,
-  Wallet, BarChart3, Clock, CreditCard, Home, BookOpen,
-  FolderCheck, CalendarCheck, CheckCircle2
+  BarChart3, Clock, Home, BookOpen, FolderCheck, CalendarCheck,
+  CheckCircle2, UserCheck, Briefcase
 } from 'lucide-react'
 
 interface DashData {
-  totalVoluntarios: number; totalProjetos: number; projetosAtivos: number
-  totalEventos: number; eventosProximos: number; totalFuncionarios: number
-  totalFuncionariosCLT: number; totalFuncionariosPJ: number; totalFornecedores: number
-  totalDepartamentos: number; totalContratos: number; totalDocumentos: number
-  totalReceitas: number; totalDespesas: number; saldoGeral: number
-  totalReceitasMes: number; totalDespesasMes: number; saldoMes: number; mesAtual: string
-  atividadeRecente: { tipo: string; titulo: string; data: string; id: string; valor?: number }[]
-  receitasPorTipo: { label: string; valor: number }[]
-  despesasPorTipo: { label: string; valor: number }[]
+  totalVoluntarios: number
+  totalProjetos: number; projetosAtivos: number; projetosEncerrados: number
+  totalEventos: number; eventosProximos: number; eventosPassados: number
+  totalFuncionarios: number; totalFuncionariosCLT: number; totalFuncionariosPJ: number
+  totalFornecedores: number; totalDepartamentos: number; totalContratos: number; totalDocumentos: number
+  voluntariosEmProjetos: number; voluntariosEmEventos: number
+  atividadeRecente: { tipo: string; titulo: string; data: string; id: string }[]
+  mesAtual: string
 }
 
-const fmt = (v: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v)
 const timeSince = (d: string) => {
   const diff = Date.now() - new Date(d).getTime()
   const mins = Math.floor(diff / 60000)
@@ -30,11 +28,10 @@ const timeSince = (d: string) => {
   if (hrs < 24) return `há ${hrs}h`
   return `há ${Math.floor(hrs / 24)}d`
 }
-const actCfg: Record<string, { icon: any; color: string; label: string; href: string }> = {
-  projeto: { icon: FolderOpen, color: 'bg-purple-100 text-purple-700', label: 'Projeto criado', href: '/cadastros/projetos' },
-  evento:  { icon: Calendar,   color: 'bg-orange-100 text-orange-700', label: 'Evento criado',  href: '/cadastros/eventos' },
-  receita: { icon: TrendingUp, color: 'bg-emerald-100 text-emerald-700', label: 'Receita',       href: '/cadastros/receitas/pessoa-fisica' },
-  despesa: { icon: TrendingDown, color: 'bg-red-100 text-red-700',      label: 'Despesa',        href: '/cadastros/despesas/consumo' },
+
+const actCfg: Record<string, { icon: React.ElementType; color: string; label: string; href: string }> = {
+  projeto: { icon: FolderOpen, color: 'bg-purple-100 text-purple-700', label: 'Projeto cadastrado', href: '/cadastros/projetos' },
+  evento:  { icon: Calendar,   color: 'bg-orange-100 text-orange-700', label: 'Evento cadastrado',  href: '/cadastros/eventos' },
 }
 
 export default function HomePage() {
@@ -75,8 +72,6 @@ export default function HomePage() {
   )
 
   const d = data!
-  const saldoCor = (v: number) => v >= 0 ? 'text-emerald-600' : 'text-red-600'
-  const saldoBg  = (v: number) => v >= 0 ? 'from-emerald-50 to-emerald-100/50 border-emerald-200' : 'from-red-50 to-red-100/50 border-red-200'
 
   return (
     <div className="space-y-6">
@@ -84,141 +79,96 @@ export default function HomePage() {
       <div className="flex items-start justify-between">
         <div>
           <h1 className="text-2xl font-bold text-navy-800">🕊️ AMO Gestão</h1>
-          <p className="text-navy-500 mt-0.5 text-sm">Associação Missionária Ômega — Painel Executivo</p>
+          <p className="text-navy-500 mt-0.5 text-sm">Associação Missionária Ômega — Painel Operacional</p>
         </div>
         <button onClick={fetchData} disabled={loading}
           className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm text-navy-500 hover:bg-cream-100 transition-colors border border-cream-200">
           <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-          {lastUpdate ? `${timeSince(lastUpdate.toISOString())}` : 'Atualizar'}
+          {lastUpdate ? timeSince(lastUpdate.toISOString()) : 'Atualizar'}
         </button>
       </div>
 
-      {/* KPIs Financeiros */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="card bg-gradient-to-br from-emerald-50 to-emerald-100/40 border-emerald-200">
+      {/* KPIs principais */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="card bg-gradient-to-br from-purple-50 to-purple-100/40 border-purple-200">
           <div className="flex items-center justify-between mb-3">
-            <div className="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center">
-              <TrendingUp className="w-5 h-5 text-emerald-600" />
+            <div className="w-10 h-10 rounded-xl bg-purple-100 flex items-center justify-center">
+              <FolderOpen className="w-5 h-5 text-purple-600" />
             </div>
-            <Link href="/cadastros/receitas/pessoa-fisica" className="text-xs text-emerald-600 hover:underline flex items-center gap-1">
-              Ver receitas <ArrowUpRight className="w-3 h-3" />
+            <Link href="/cadastros/projetos" className="text-xs text-purple-600 hover:underline flex items-center gap-1">
+              Ver <ArrowUpRight className="w-3 h-3" />
             </Link>
           </div>
-          <p className="text-xs text-emerald-700 font-medium uppercase tracking-wide">Total Receitas</p>
-          <p className="text-2xl font-bold text-emerald-700 mt-1">{fmt(d.totalReceitas)}</p>
-          <div className="mt-3 pt-3 border-t border-emerald-200">
-            <p className="text-xs text-emerald-600"><span className="font-semibold">{fmt(d.totalReceitasMes)}</span> no mês atual</p>
+          <p className="text-xs text-purple-700 font-medium uppercase tracking-wide">Projetos</p>
+          <p className="text-3xl font-bold text-purple-700 mt-1">{d.totalProjetos}</p>
+          <div className="mt-3 pt-3 border-t border-purple-200 flex justify-between text-xs text-purple-600">
+            <span><span className="font-semibold">{d.projetosAtivos}</span> ativos</span>
+            <span><span className="font-semibold">{d.projetosEncerrados}</span> encerrados</span>
           </div>
         </div>
 
-        <div className="card bg-gradient-to-br from-red-50 to-red-100/40 border-red-200">
+        <div className="card bg-gradient-to-br from-orange-50 to-orange-100/40 border-orange-200">
           <div className="flex items-center justify-between mb-3">
-            <div className="w-10 h-10 rounded-xl bg-red-100 flex items-center justify-center">
-              <TrendingDown className="w-5 h-5 text-red-600" />
+            <div className="w-10 h-10 rounded-xl bg-orange-100 flex items-center justify-center">
+              <Calendar className="w-5 h-5 text-orange-600" />
             </div>
-            <Link href="/cadastros/despesas/consumo" className="text-xs text-red-600 hover:underline flex items-center gap-1">
-              Ver despesas <ArrowUpRight className="w-3 h-3" />
+            <Link href="/cadastros/eventos" className="text-xs text-orange-600 hover:underline flex items-center gap-1">
+              Ver <ArrowUpRight className="w-3 h-3" />
             </Link>
           </div>
-          <p className="text-xs text-red-700 font-medium uppercase tracking-wide">Total Despesas</p>
-          <p className="text-2xl font-bold text-red-700 mt-1">{fmt(d.totalDespesas)}</p>
-          <div className="mt-3 pt-3 border-t border-red-200">
-            <p className="text-xs text-red-600"><span className="font-semibold">{fmt(d.totalDespesasMes)}</span> no mês atual</p>
+          <p className="text-xs text-orange-700 font-medium uppercase tracking-wide">Eventos</p>
+          <p className="text-3xl font-bold text-orange-700 mt-1">{d.totalEventos}</p>
+          <div className="mt-3 pt-3 border-t border-orange-200 flex justify-between text-xs text-orange-600">
+            <span><span className="font-semibold">{d.eventosProximos}</span> próximos</span>
+            <span><span className="font-semibold">{d.eventosPassados}</span> passados</span>
           </div>
         </div>
 
-        <div className={`card bg-gradient-to-br ${saldoBg(d.saldoGeral)}`}>
+        <div className="card bg-gradient-to-br from-blue-50 to-blue-100/40 border-blue-200">
           <div className="flex items-center justify-between mb-3">
-            <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${d.saldoGeral >= 0 ? 'bg-emerald-100' : 'bg-red-100'}`}>
-              <Wallet className={`w-5 h-5 ${saldoCor(d.saldoGeral)}`} />
+            <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center">
+              <Users className="w-5 h-5 text-blue-600" />
             </div>
-            <span className={`text-xs font-semibold px-2 py-1 rounded-full ${d.saldoGeral >= 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>
-              {d.saldoGeral >= 0 ? '✓ Positivo' : '⚠ Negativo'}
-            </span>
+            <Link href="/cadastros/voluntarios-amo" className="text-xs text-blue-600 hover:underline flex items-center gap-1">
+              Ver <ArrowUpRight className="w-3 h-3" />
+            </Link>
           </div>
-          <p className={`text-xs font-medium uppercase tracking-wide ${saldoCor(d.saldoGeral)}`}>Saldo Geral</p>
-          <p className={`text-2xl font-bold mt-1 ${saldoCor(d.saldoGeral)}`}>{fmt(d.saldoGeral)}</p>
-          <div className={`mt-3 pt-3 border-t ${d.saldoGeral >= 0 ? 'border-emerald-200' : 'border-red-200'}`}>
-            <p className={`text-xs ${saldoCor(d.saldoMes)}`}>Saldo do mês: <span className="font-semibold">{fmt(d.saldoMes)}</span></p>
+          <p className="text-xs text-blue-700 font-medium uppercase tracking-wide">Voluntários</p>
+          <p className="text-3xl font-bold text-blue-700 mt-1">{d.totalVoluntarios}</p>
+          <div className="mt-3 pt-3 border-t border-blue-200 flex justify-between text-xs text-blue-600">
+            <span><span className="font-semibold">{d.voluntariosEmProjetos}</span> em projetos</span>
+            <span><span className="font-semibold">{d.voluntariosEmEventos}</span> em eventos</span>
+          </div>
+        </div>
+
+        <div className="card bg-gradient-to-br from-sky-50 to-sky-100/40 border-sky-200">
+          <div className="flex items-center justify-between mb-3">
+            <div className="w-10 h-10 rounded-xl bg-sky-100 flex items-center justify-center">
+              <Building2 className="w-5 h-5 text-sky-600" />
+            </div>
+            <Link href="/cadastros/departamentos" className="text-xs text-sky-600 hover:underline flex items-center gap-1">
+              Ver <ArrowUpRight className="w-3 h-3" />
+            </Link>
+          </div>
+          <p className="text-xs text-sky-700 font-medium uppercase tracking-wide">Departamentos</p>
+          <p className="text-3xl font-bold text-sky-700 mt-1">{d.totalDepartamentos}</p>
+          <div className="mt-3 pt-3 border-t border-sky-200">
+            <p className="text-xs text-sky-600">unidades ativas</p>
           </div>
         </div>
       </div>
 
-      {/* Breakdown de Receitas e Despesas */}
-      {(d.receitasPorTipo.length > 0 || d.despesasPorTipo.length > 0) && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {/* Receitas por tipo */}
-          {d.receitasPorTipo.length > 0 && (
-            <div className="card">
-              <h2 className="font-semibold text-navy-800 flex items-center gap-2 mb-4">
-                <TrendingUp className="w-4 h-4 text-emerald-500" /> Receitas por Categoria
-              </h2>
-              <div className="space-y-2.5">
-                {d.receitasPorTipo.map(item => {
-                  const pct = d.totalReceitas > 0 ? (item.valor / d.totalReceitas) * 100 : 0
-                  return (
-                    <div key={item.label}>
-                      <div className="flex justify-between items-center mb-1">
-                        <span className="text-xs text-navy-600 font-medium">{item.label}</span>
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs text-navy-500">{pct.toFixed(1)}%</span>
-                          <span className="text-xs font-semibold text-emerald-700">{fmt(item.valor)}</span>
-                        </div>
-                      </div>
-                      <div className="w-full bg-cream-100 rounded-full h-2">
-                        <div className="bg-emerald-400 h-2 rounded-full transition-all duration-700"
-                          style={{ width: `${pct}%` }} />
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
-          )}
-          {/* Despesas por tipo */}
-          {d.despesasPorTipo.length > 0 && (
-            <div className="card">
-              <h2 className="font-semibold text-navy-800 flex items-center gap-2 mb-4">
-                <TrendingDown className="w-4 h-4 text-red-500" /> Despesas por Categoria
-              </h2>
-              <div className="space-y-2.5">
-                {d.despesasPorTipo.map(item => {
-                  const pct = d.totalDespesas > 0 ? (item.valor / d.totalDespesas) * 100 : 0
-                  return (
-                    <div key={item.label}>
-                      <div className="flex justify-between items-center mb-1">
-                        <span className="text-xs text-navy-600 font-medium">{item.label}</span>
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs text-navy-500">{pct.toFixed(1)}%</span>
-                          <span className="text-xs font-semibold text-red-700">{fmt(item.valor)}</span>
-                        </div>
-                      </div>
-                      <div className="w-full bg-cream-100 rounded-full h-2">
-                        <div className="bg-red-400 h-2 rounded-full transition-all duration-700"
-                          style={{ width: `${pct}%` }} />
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Contadores Operacionais */}
+      {/* Registros Operacionais */}
       <div>
         <h2 className="text-xs font-semibold text-navy-500 uppercase tracking-wide mb-3">Registros Operacionais</h2>
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3">
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
           {[
-            { label: 'Voluntários', value: d.totalVoluntarios, icon: Users, href: '/cadastros/voluntarios-amo', c: 'text-blue-600 bg-blue-50' },
-            { label: 'Projetos', value: d.totalProjetos, sub: `${d.projetosAtivos} ativo(s)`, icon: FolderOpen, href: '/cadastros/projetos', c: 'text-purple-600 bg-purple-50' },
-            { label: 'Eventos', value: d.totalEventos, sub: `${d.eventosProximos} próx.`, icon: Calendar, href: '/cadastros/eventos', c: 'text-orange-600 bg-orange-50' },
-            { label: 'Funcionários', value: d.totalFuncionarios, sub: `${d.totalFuncionariosCLT}CLT·${d.totalFuncionariosPJ}PJ`, icon: Users, href: '/cadastros/funcionarios/clt', c: 'text-indigo-600 bg-indigo-50' },
+            { label: 'Funcionários', value: d.totalFuncionarios, sub: `${d.totalFuncionariosCLT} CLT · ${d.totalFuncionariosPJ} PJ`, icon: Briefcase, href: '/cadastros/funcionarios/clt', c: 'text-indigo-600 bg-indigo-50' },
             { label: 'Fornecedores', value: d.totalFornecedores, icon: Handshake, href: '/cadastros/fornecedores', c: 'text-yellow-600 bg-yellow-50' },
-            { label: 'Departamentos', value: d.totalDepartamentos, icon: Building2, href: '/cadastros/departamentos', c: 'text-sky-600 bg-sky-50' },
             { label: 'Contratos', value: d.totalContratos, icon: Home, href: '/cadastros/imoveis', c: 'text-teal-600 bg-teal-50' },
             { label: 'Documentos', value: d.totalDocumentos, icon: BookOpen, href: '/cadastros/documentos', c: 'text-rose-600 bg-rose-50' },
+            { label: 'Vol. em Projetos', value: d.voluntariosEmProjetos, icon: UserCheck, href: '/cadastros/voluntarios-projeto', c: 'text-purple-600 bg-purple-50' },
+            { label: 'Vol. em Eventos', value: d.voluntariosEmEventos, icon: UserCheck, href: '/cadastros/voluntarios-evento', c: 'text-orange-600 bg-orange-50' },
           ].map(item => {
             const Icon = item.icon
             return (
@@ -229,7 +179,7 @@ export default function HomePage() {
                   </div>
                   <p className="text-xl font-bold text-navy-800">{item.value}</p>
                   <p className="text-xs text-navy-600 font-medium mt-0.5 leading-tight">{item.label}</p>
-                  {item.sub && <p className="text-xs text-navy-400 mt-0.5 leading-tight">{item.sub}</p>}
+                  {'sub' in item && item.sub && <p className="text-xs text-navy-400 mt-0.5 leading-tight">{item.sub}</p>}
                 </div>
               </Link>
             )
@@ -237,7 +187,7 @@ export default function HomePage() {
         </div>
       </div>
 
-      {/* Atividade + Alertas + Atalhos */}
+      {/* Atividade recente + Alertas */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Atividade recente */}
         <div className="lg:col-span-2 card">
@@ -248,12 +198,12 @@ export default function HomePage() {
             <div className="text-center py-8 text-navy-400">
               <BarChart3 className="w-10 h-10 mx-auto mb-2 opacity-30" />
               <p className="text-sm">Nenhuma atividade ainda.</p>
-              <p className="text-xs mt-1">Comece cadastrando projetos e receitas.</p>
+              <p className="text-xs mt-1">Comece cadastrando projetos e eventos.</p>
             </div>
           ) : (
             <div className="space-y-1.5">
               {d.atividadeRecente.map((item, i) => {
-                const cfg = actCfg[item.tipo] || actCfg.receita
+                const cfg = actCfg[item.tipo] || actCfg.projeto
                 const Icon = cfg.icon
                 return (
                   <Link key={`${item.tipo}-${item.id}-${i}`} href={cfg.href}>
@@ -265,14 +215,7 @@ export default function HomePage() {
                         <p className="text-sm font-medium text-navy-800 truncate">{item.titulo}</p>
                         <p className="text-xs text-navy-400">{cfg.label}</p>
                       </div>
-                      <div className="text-right flex-shrink-0">
-                        {item.valor !== undefined && (
-                          <p className={`text-sm font-semibold ${item.tipo === 'receita' ? 'text-emerald-600' : 'text-red-600'}`}>
-                            {fmt(item.valor)}
-                          </p>
-                        )}
-                        <p className="text-xs text-navy-400">{timeSince(item.data)}</p>
-                      </div>
+                      <p className="text-xs text-navy-400 flex-shrink-0">{timeSince(item.data)}</p>
                     </div>
                   </Link>
                 )
@@ -281,9 +224,8 @@ export default function HomePage() {
           )}
         </div>
 
-        {/* Coluna direita */}
+        {/* Alertas + Atalhos */}
         <div className="space-y-4">
-          {/* Alertas */}
           <div className="card">
             <h2 className="font-semibold text-navy-800 mb-3 flex items-center gap-2">
               <AlertCircle className="w-4 h-4 text-navy-400" /> Alertas
@@ -311,16 +253,7 @@ export default function HomePage() {
                   </div>
                 </Link>
               )}
-              {d.saldoMes < 0 && (
-                <div className="flex items-start gap-2.5 p-2.5 bg-red-50 border border-red-200 rounded-xl">
-                  <TrendingDown className="w-4 h-4 text-red-600 mt-0.5 flex-shrink-0" />
-                  <div>
-                    <p className="text-xs font-semibold text-red-800">Saldo negativo no mês</p>
-                    <p className="text-xs text-red-700">Despesas superam receitas em {fmt(Math.abs(d.saldoMes))}</p>
-                  </div>
-                </div>
-              )}
-              {d.eventosProximos === 0 && d.projetosAtivos === 0 && d.saldoMes >= 0 && (
+              {d.eventosProximos === 0 && d.projetosAtivos === 0 && (
                 <div className="flex items-start gap-2.5 p-2.5 bg-emerald-50 border border-emerald-200 rounded-xl">
                   <CheckCircle2 className="w-4 h-4 text-emerald-600 mt-0.5 flex-shrink-0" />
                   <div>
@@ -335,16 +268,16 @@ export default function HomePage() {
           {/* Atalhos rápidos */}
           <div className="card">
             <h2 className="font-semibold text-navy-800 mb-3 flex items-center gap-2">
-              <CreditCard className="w-4 h-4 text-navy-400" /> Acesso Rápido
+              <FileText className="w-4 h-4 text-navy-400" /> Acesso Rápido
             </h2>
             <div className="space-y-1">
               {[
-                { label: 'Nova Receita P. Física', href: '/cadastros/receitas/pessoa-fisica', c: 'hover:bg-emerald-50 hover:text-emerald-700' },
-                { label: 'Nova Despesa Consumo', href: '/cadastros/despesas/consumo', c: 'hover:bg-red-50 hover:text-red-700' },
                 { label: 'Novo Projeto', href: '/cadastros/projetos', c: 'hover:bg-purple-50 hover:text-purple-700' },
                 { label: 'Novo Evento', href: '/cadastros/eventos', c: 'hover:bg-orange-50 hover:text-orange-700' },
+                { label: 'Novo Voluntário', href: '/cadastros/voluntarios-amo', c: 'hover:bg-blue-50 hover:text-blue-700' },
                 { label: 'Consolidar Projeto', href: '/cadastros/consolidacoes/projetos', c: 'hover:bg-slate-50 hover:text-slate-700' },
                 { label: 'Consolidar Evento', href: '/cadastros/consolidacoes/eventos', c: 'hover:bg-slate-50 hover:text-slate-700' },
+                { label: 'Relatórios', href: '/relatorios', c: 'hover:bg-slate-50 hover:text-slate-700' },
               ].map(link => (
                 <Link key={link.href} href={link.href}>
                   <div className={`flex items-center justify-between px-3 py-2 rounded-lg text-sm text-navy-600 transition-colors ${link.c}`}>
