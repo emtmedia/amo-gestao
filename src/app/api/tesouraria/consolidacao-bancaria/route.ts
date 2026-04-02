@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getSession } from '@/lib/session'
+import { prisma } from '@/lib/prisma'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -20,7 +21,6 @@ function creditLabel(index: number): string {
 
 // Converte arquivo OFX para texto legível
 function parseOFX(text: string): string {
-  // Remove headers SGML, extrai transações
   const lines = text.split('\n').map(l => l.trim()).filter(Boolean)
   const transactions: string[] = []
   let current: Record<string, string> = {}
@@ -43,10 +43,7 @@ function parseOFX(text: string): string {
     }
   }
 
-  if (transactions.length === 0) {
-    return text.slice(0, 8000) // fallback: envia texto bruto truncado
-  }
-
+  if (transactions.length === 0) return text.slice(0, 8000)
   return `Extrato OFX - ${transactions.length} transações:\n` + transactions.join('\n')
 }
 
@@ -91,6 +88,42 @@ Retorne SOMENTE JSON válido, sem markdown, sem texto extra, no seguinte formato
   "notes": "observações importantes sobre a conta (cheque especial, padrões, etc.)"
 }`
 
+// ─── GET: lista todas as consolidações ───────────────────────────────────────
+export async function GET() {
+  try {
+    const session = await getSession()
+    if (!session || !['admin', 'superadmin'].includes(session.role)) {
+      return NextResponse.json({ error: 'Acesso restrito a administradores.' }, { status: 403 })
+    }
+
+    const records = await prisma.consolidacaoBancaria.findMany({
+      orderBy: { createdAt: 'desc' },
+      select: {
+        id: true,
+        fileName: true,
+        fileSize: true,
+        bank: true,
+        period: true,
+        summary: true,
+        criadoPorNome: true,
+        createdAt: true,
+      },
+    })
+
+    const list = records.map(r => ({
+      ...r,
+      summary: JSON.parse(r.summary),
+      createdAt: r.createdAt.toISOString(),
+    }))
+
+    return NextResponse.json({ ok: true, records: list })
+  } catch (error) {
+    console.error('[consolidacao-bancaria GET]', error)
+    return NextResponse.json({ error: 'Erro ao listar consolidações.' }, { status: 500 })
+  }
+}
+
+// ─── POST: analisa e salva nova consolidação ──────────────────────────────────
 export async function POST(req: NextRequest) {
   try {
     const session = await getSession()
@@ -122,41 +155,24 @@ export async function POST(req: NextRequest) {
     let userContent: unknown[]
 
     if (ext === 'pdf') {
-      // PDF nativo via Claude document API
       const base64 = buffer.toString('base64')
       userContent = [
-        {
-          type: 'document',
-          source: { type: 'base64', media_type: 'application/pdf', data: base64 },
-        },
-        {
-          type: 'text',
-          text: 'Analise este extrato bancário e retorne o JSON conforme instruído.',
-        },
+        { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: base64 } },
+        { type: 'text', text: 'Analise este extrato bancário e retorne o JSON conforme instruído.' },
       ]
     } else if (ext === 'ofx') {
-      // OFX: parse para texto
       const text = buffer.toString('utf-8')
       const parsed = parseOFX(text)
       userContent = [
-        {
-          type: 'text',
-          text: `Arquivo OFX do extrato bancário:\n\n${parsed}\n\nAnalise e retorne o JSON conforme instruído.`,
-        },
+        { type: 'text', text: `Arquivo OFX do extrato bancário:\n\n${parsed}\n\nAnalise e retorne o JSON conforme instruído.` },
       ]
     } else if (['xlsx', 'xls'].includes(ext)) {
-      // Excel: parse com xlsx
       const XLSX = await import('xlsx')
       const workbook = XLSX.read(buffer, { type: 'buffer' })
-      const sheetName = workbook.SheetNames[0]
-      const sheet = workbook.Sheets[sheetName]
-      const csv = XLSX.utils.sheet_to_csv(sheet)
-      const truncated = csv.slice(0, 12000)
+      const sheet = workbook.Sheets[workbook.SheetNames[0]]
+      const csv = XLSX.utils.sheet_to_csv(sheet).slice(0, 12000)
       userContent = [
-        {
-          type: 'text',
-          text: `Planilha Excel do extrato bancário (convertida para CSV):\n\n${truncated}\n\nAnalise e retorne o JSON conforme instruído.`,
-        },
+        { type: 'text', text: `Planilha Excel do extrato bancário (CSV):\n\n${csv}\n\nAnalise e retorne o JSON conforme instruído.` },
       ]
     } else {
       return NextResponse.json({ error: 'Formato não suportado. Use PDF, OFX, XLS ou XLSX.' }, { status: 400 })
@@ -195,32 +211,19 @@ export async function POST(req: NextRequest) {
     }
 
     const rawText = claudeData.content?.find(c => c.type === 'text')?.text ?? ''
-
-    // Extrai JSON da resposta (Claude pode incluir texto extra ocasionalmente)
     const jsonMatch = rawText.match(/\{[\s\S]*\}/)
     if (!jsonMatch) {
       return NextResponse.json({ error: 'Não foi possível extrair dados estruturados do extrato.' }, { status: 500 })
     }
 
+    type TxRaw = {
+      date: string; description: string
+      debit: number | null; credit: number | null; balance: number | null
+      type: 'debit' | 'credit' | 'neutral'; key: string | null; reason: string
+    }
     type Analysis = {
-      bank: string
-      period: string
-      transactions: Array<{
-        date: string
-        description: string
-        debit: number | null
-        credit: number | null
-        balance: number | null
-        type: 'debit' | 'credit' | 'neutral'
-        key: string | null
-        reason: string
-      }>
-      summary: {
-        totalDebits: number
-        totalCredits: number
-        debitCount: number
-        creditCount: number
-      }
+      bank: string; period: string; transactions: TxRaw[]
+      summary: { totalDebits: number; totalCredits: number; debitCount: number; creditCount: number }
       notes: string
     }
 
@@ -229,7 +232,6 @@ export async function POST(req: NextRequest) {
       analysis = JSON.parse(jsonMatch[0]) as Analysis
     } catch (parseErr) {
       console.error('[consolidacao-bancaria] JSON parse error:', parseErr)
-      console.error('[consolidacao-bancaria] Raw text (first 500):', rawText.slice(0, 500))
       return NextResponse.json({
         error: 'A resposta da IA não pôde ser interpretada. Tente novamente ou use um extrato com menos transações.',
       }, { status: 500 })
@@ -239,16 +241,29 @@ export async function POST(req: NextRequest) {
     let debitIndex = 0
     let creditIndex = 0
     const transactions = analysis.transactions.map(t => {
-      if (t.type === 'debit') {
-        return { ...t, label: debitLabel(debitIndex++) }
-      } else if (t.type === 'credit') {
-        return { ...t, label: creditLabel(creditIndex++) }
-      }
+      if (t.type === 'debit') return { ...t, label: debitLabel(debitIndex++) }
+      if (t.type === 'credit') return { ...t, label: creditLabel(creditIndex++) }
       return { ...t, label: null }
+    })
+
+    // Salva no banco
+    const record = await prisma.consolidacaoBancaria.create({
+      data: {
+        fileName: file.name,
+        fileSize: file.size,
+        bank: analysis.bank,
+        period: analysis.period,
+        transactions: JSON.stringify(transactions),
+        summary: JSON.stringify(analysis.summary),
+        notes: analysis.notes ?? null,
+        criadoPorId: session.userId,
+        criadoPorNome: session.nome,
+      },
     })
 
     return NextResponse.json({
       ok: true,
+      id: record.id,
       fileName: file.name,
       fileSize: file.size,
       bank: analysis.bank,
@@ -256,9 +271,11 @@ export async function POST(req: NextRequest) {
       transactions,
       summary: analysis.summary,
       notes: analysis.notes,
+      criadoPorNome: session.nome,
+      createdAt: record.createdAt.toISOString(),
     })
   } catch (error) {
-    console.error('[consolidacao-bancaria] Erro:', error)
+    console.error('[consolidacao-bancaria POST]', error)
     const msg = error instanceof Error ? error.message : 'Erro interno'
     return NextResponse.json({ error: msg }, { status: 500 })
   }
