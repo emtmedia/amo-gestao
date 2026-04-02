@@ -249,36 +249,93 @@ function TransactionRow({ tx, index }: { tx: Transaction; index: number }) {
   )
 }
 
-// ─── Debit Groups Section ─────────────────────────────────────────────────────
+// ─── Grouping helpers ─────────────────────────────────────────────────────────
 
-interface DebitGroup { key: string; items: (Transaction & { label: string })[]; subtotal: number }
+interface TxGroup { key: string; items: (Transaction & { label: string })[]; subtotal: number }
 
-function buildDebitGroups(transactions: Transaction[]): DebitGroup[] {
-  const map = new Map<string, DebitGroup>()
+// Quando a IA não extraiu 'key', tenta inferir da descrição:
+// "TRANSFERENCIA PIX REM: Fulano" → "TRANSFERENCIA PIX REM"
+// "PIX EMIT.OUTRA IF - 16/03"    → "PIX EMIT.OUTRA IF"
+function inferKey(tx: Transaction): string {
+  if (tx.key) return tx.key
+  const desc = tx.description ?? ''
+  // separa pelo primeiro ': ' ou ' - ' ou por 30 caracteres
+  const m = desc.match(/^([^:\-]{3,40?}?)(?:\s*[:\-]\s|\s{2,}|$)/)
+  return m ? m[1].trim() : desc.slice(0, 30).trim() || 'OUTROS'
+}
+
+function buildGroups(transactions: Transaction[], type: 'debit' | 'credit'): TxGroup[] {
+  const map = new Map<string, TxGroup>()
   for (const tx of transactions) {
-    if (tx.type !== 'debit' || !tx.label) continue
-    const key = tx.key ?? 'OUTROS'
+    if (tx.type !== type || !tx.label) continue
+    const key = inferKey(tx)
     if (!map.has(key)) map.set(key, { key, items: [], subtotal: 0 })
     const g = map.get(key)!
     g.items.push(tx as Transaction & { label: string })
-    g.subtotal += tx.debit ?? 0
+    g.subtotal += (type === 'debit' ? tx.debit : tx.credit) ?? 0
   }
   return Array.from(map.values()).sort((a, b) => b.subtotal - a.subtotal)
 }
 
+// ─── Debit Groups Section ─────────────────────────────────────────────────────
+
+function DebitGroupsSection({ transactions, totalDebits }: { transactions: Transaction[]; totalDebits: number }) {
+  const [open, setOpen] = useState(true)
+  const groups = buildGroups(transactions, 'debit')
+  if (groups.length === 0) return null
+
+  return (
+    <div className="border-t border-cream-200 bg-white shrink-0">
+      <button onClick={() => setOpen(p => !p)}
+        className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-cream-50 transition-colors">
+        <div className="flex items-center gap-2">
+          <TrendingDown className="w-3.5 h-3.5 text-red-500" />
+          <span className="text-xs font-bold text-navy-800 uppercase tracking-wide">Agrupamento por Tipo de Débito</span>
+          <span className="text-[10px] bg-red-100 text-red-600 px-1.5 py-0.5 rounded-full">{groups.length} grupos</span>
+        </div>
+        {open ? <ChevronUp className="w-3.5 h-3.5 text-navy-400" /> : <ChevronDown className="w-3.5 h-3.5 text-navy-400" />}
+      </button>
+
+      {open && (
+        <div className="px-4 pb-4 space-y-2">
+          {groups.map(g => (
+            <div key={g.key} className="border border-yellow-200 rounded-lg overflow-hidden">
+              <div className="flex items-center justify-between bg-yellow-50 px-3 py-1.5">
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-mono font-bold text-yellow-800 bg-yellow-100 border border-yellow-300 px-1.5 py-0.5 rounded">{g.items.length}x</span>
+                  <span className="text-xs font-semibold text-navy-700">{g.key}</span>
+                </div>
+                <span className="text-xs font-bold text-red-600">{fmt(g.subtotal)}</span>
+              </div>
+              <div className="divide-y divide-yellow-100">
+                {g.items.map(tx => (
+                  <div key={tx.label} className="flex items-center justify-between px-3 py-1 bg-yellow-50/30">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="text-[10px] font-bold font-mono text-yellow-700 bg-yellow-200 border border-yellow-300 px-1 py-0.5 rounded shrink-0">{tx.label}</span>
+                      <span className="text-[11px] text-navy-600 truncate">{tx.description}</span>
+                      <span className="text-[10px] text-navy-400 shrink-0 whitespace-nowrap">{tx.date}</span>
+                    </div>
+                    <span className="text-xs font-medium text-red-600 shrink-0 ml-2">{fmt(tx.debit)}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+          <div className="flex items-center justify-between bg-navy-800 text-white rounded-lg px-3 py-2 mt-1">
+            <span className="text-xs font-bold uppercase tracking-wide">Total Débitos</span>
+            <span className="text-sm font-bold">{fmt(totalDebits)}</span>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── Credit Groups Section ────────────────────────────────────────────────────
+
 function CreditGroupsSection({ transactions, totalCredits }: { transactions: Transaction[]; totalCredits: number }) {
   const [open, setOpen] = useState(true)
-
-  const map = new Map<string, { key: string; items: (Transaction & { label: string })[]; subtotal: number }>()
-  for (const tx of transactions) {
-    if (tx.type !== 'credit' || !tx.label) continue
-    const key = tx.key ?? 'OUTROS'
-    if (!map.has(key)) map.set(key, { key, items: [], subtotal: 0 })
-    const g = map.get(key)!
-    g.items.push(tx as Transaction & { label: string })
-    g.subtotal += tx.credit ?? 0
-  }
-  const groups = Array.from(map.values()).sort((a, b) => b.subtotal - a.subtotal)
+  const groups = buildGroups(transactions, 'credit')
   if (groups.length === 0) return null
 
   return (
@@ -328,57 +385,6 @@ function CreditGroupsSection({ transactions, totalCredits }: { transactions: Tra
   )
 }
 
-function DebitGroupsSection({ transactions, totalDebits }: { transactions: Transaction[]; totalDebits: number }) {
-  const [open, setOpen] = useState(true)
-  const groups = buildDebitGroups(transactions)
-  if (groups.length === 0) return null
-
-  return (
-    <div className="border-t border-cream-200 bg-white shrink-0">
-      <button onClick={() => setOpen(p => !p)}
-        className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-cream-50 transition-colors">
-        <div className="flex items-center gap-2">
-          <TrendingDown className="w-3.5 h-3.5 text-red-500" />
-          <span className="text-xs font-bold text-navy-800 uppercase tracking-wide">Agrupamento por Tipo de Débito</span>
-          <span className="text-[10px] bg-red-100 text-red-600 px-1.5 py-0.5 rounded-full">{groups.length} grupos</span>
-        </div>
-        {open ? <ChevronUp className="w-3.5 h-3.5 text-navy-400" /> : <ChevronDown className="w-3.5 h-3.5 text-navy-400" />}
-      </button>
-
-      {open && (
-        <div className="px-4 pb-4 space-y-2">
-          {groups.map(g => (
-            <div key={g.key} className="border border-yellow-200 rounded-lg overflow-hidden">
-              <div className="flex items-center justify-between bg-yellow-50 px-3 py-1.5">
-                <div className="flex items-center gap-2">
-                  <span className="text-[10px] font-mono font-bold text-yellow-800 bg-yellow-100 border border-yellow-300 px-1.5 py-0.5 rounded">{g.items.length}x</span>
-                  <span className="text-xs font-semibold text-navy-700">{g.key}</span>
-                </div>
-                <span className="text-xs font-bold text-red-600">{fmt(g.subtotal)}</span>
-              </div>
-              <div className="divide-y divide-yellow-100">
-                {g.items.map(tx => (
-                  <div key={tx.label} className="flex items-center justify-between px-3 py-1 bg-yellow-50/30">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <span className="text-[10px] font-bold font-mono text-yellow-700 bg-yellow-200 border border-yellow-300 px-1 py-0.5 rounded shrink-0">{tx.label}</span>
-                      <span className="text-[11px] text-navy-600 truncate">{tx.description}</span>
-                      <span className="text-[10px] text-navy-400 shrink-0 whitespace-nowrap">{tx.date}</span>
-                    </div>
-                    <span className="text-xs font-medium text-red-600 shrink-0 ml-2">{fmt(tx.debit)}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ))}
-          <div className="flex items-center justify-between bg-navy-800 text-white rounded-lg px-3 py-2 mt-1">
-            <span className="text-xs font-bold uppercase tracking-wide">Total Débitos</span>
-            <span className="text-sm font-bold">{fmt(totalDebits)}</span>
-          </div>
-        </div>
-      )}
-    </div>
-  )
-}
 
 // ─── Results Panel ────────────────────────────────────────────────────────────
 
