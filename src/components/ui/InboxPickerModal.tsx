@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import {
   Inbox, Search, FileText, Image, FileSpreadsheet, File,
-  X, Loader2, AlertCircle
+  X, Loader2, AlertCircle, Eye, Download, ExternalLink
 } from 'lucide-react'
 
 interface InboxDoc {
@@ -53,12 +53,102 @@ function FileIcon({ type }: { type: string }) {
   return <File size={18} className="text-gray-500" />
 }
 
+// ─── Preview overlay ──────────────────────────────────────────────────────────
+
+function FilePreviewOverlay({ doc, onClose }: { doc: InboxDoc; onClose: () => void }) {
+  const isImage = doc.tipoArquivo.startsWith('image/')
+  const isPDF   = doc.tipoArquivo.includes('pdf')
+
+  return (
+    <div
+      className="fixed inset-0 z-[10100] flex items-center justify-center bg-black/75 backdrop-blur-sm"
+      onClick={e => { if (e.target === e.currentTarget) onClose() }}
+    >
+      <div className="relative bg-white rounded-2xl shadow-2xl flex flex-col"
+        style={{ width: '90vw', maxWidth: 900, maxHeight: '90vh' }}>
+
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-3 border-b border-gray-200 shrink-0">
+          <div className="flex items-center gap-2 min-w-0">
+            <FileIcon type={doc.tipoArquivo} />
+            <span className="text-sm font-semibold text-gray-800 truncate">{doc.descricao}</span>
+            <span className="text-xs text-gray-400 shrink-0">· {doc.nomeArquivo}</span>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <a
+              href={doc.urlArquivo}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-500 hover:text-gray-800 transition-colors"
+              title="Abrir em nova aba"
+            >
+              <ExternalLink size={16} />
+            </a>
+            <a
+              href={doc.urlArquivo}
+              download={doc.nomeArquivo}
+              className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-500 hover:text-gray-800 transition-colors"
+              title="Baixar arquivo"
+            >
+              <Download size={16} />
+            </a>
+            <button
+              onClick={onClose}
+              className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-500 hover:text-gray-800 transition-colors"
+            >
+              <X size={18} />
+            </button>
+          </div>
+        </div>
+
+        {/* Preview area */}
+        <div className="flex-1 overflow-hidden flex items-center justify-center bg-gray-50 rounded-b-2xl min-h-0">
+          {isImage && (
+            <img
+              src={doc.urlArquivo}
+              alt={doc.descricao}
+              className="max-w-full max-h-full object-contain p-4"
+            />
+          )}
+          {isPDF && (
+            <iframe
+              src={doc.urlArquivo}
+              title={doc.descricao}
+              className="w-full h-full rounded-b-2xl"
+              style={{ minHeight: '60vh' }}
+            />
+          )}
+          {!isImage && !isPDF && (
+            <div className="flex flex-col items-center justify-center gap-4 py-16 text-gray-400">
+              <FileIcon type={doc.tipoArquivo} />
+              <p className="text-sm font-medium text-gray-600">{doc.nomeArquivo}</p>
+              <p className="text-xs text-gray-400">Pré-visualização não disponível para este tipo de arquivo.</p>
+              <a
+                href={doc.urlArquivo}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                <ExternalLink size={14} />
+                Abrir arquivo
+              </a>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── Main modal ───────────────────────────────────────────────────────────────
+
 export default function InboxPickerModal({ open, onClose, onSelect }: InboxPickerModalProps) {
   const [documentos, setDocumentos] = useState<InboxDoc[]>([])
   const [loading, setLoading]       = useState(false)
   const [busca, setBusca]           = useState('')
   const [selecionando, setSelecionando] = useState<string | null>(null)
   const [error, setError]           = useState('')
+  const [previewing, setPreviewing] = useState<InboxDoc | null>(null)
 
   useEffect(() => {
     if (!open) return
@@ -108,6 +198,7 @@ export default function InboxPickerModal({ open, onClose, onSelect }: InboxPicke
   if (!open) return null
 
   return (
+    <>
     <div
       className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/60 backdrop-blur-sm"
       onClick={e => { if (e.target === e.currentTarget) onClose() }}
@@ -195,14 +286,23 @@ export default function InboxPickerModal({ open, onClose, onSelect }: InboxPicke
                     </p>
                     <p className="text-xs text-gray-400">Por {doc.enviadoPorNome}</p>
                   </div>
-                  <button
-                    onClick={() => handleSelect(doc)}
-                    disabled={!!selecionando}
-                    className="shrink-0 px-3 py-1.5 text-xs font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-60 flex items-center gap-1.5"
-                  >
-                    {selecionando === doc.id && <Loader2 size={13} className="animate-spin" />}
-                    Selecionar
-                  </button>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      onClick={() => setPreviewing(doc)}
+                      title="Visualizar arquivo"
+                      className="p-1.5 rounded-lg border border-gray-200 hover:border-blue-400 hover:bg-blue-50 text-gray-400 hover:text-blue-600 transition-colors"
+                    >
+                      <Eye size={15} />
+                    </button>
+                    <button
+                      onClick={() => handleSelect(doc)}
+                      disabled={!!selecionando}
+                      className="px-3 py-1.5 text-xs font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-60 flex items-center gap-1.5"
+                    >
+                      {selecionando === doc.id && <Loader2 size={13} className="animate-spin" />}
+                      Selecionar
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -210,5 +310,10 @@ export default function InboxPickerModal({ open, onClose, onSelect }: InboxPicke
         </div>
       </div>
     </div>
+
+    {previewing && (
+      <FilePreviewOverlay doc={previewing} onClose={() => setPreviewing(null)} />
+    )}
+    </>
   )
 }
