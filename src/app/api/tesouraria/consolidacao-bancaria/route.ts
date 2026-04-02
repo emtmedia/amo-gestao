@@ -165,7 +165,7 @@ export async function POST(req: NextRequest) {
       },
       body: JSON.stringify({
         model: 'claude-opus-4-6',
-        max_tokens: 4096,
+        max_tokens: 16384,
         system: SYSTEM_PROMPT,
         messages: [{ role: 'user', content: userContent }],
       }),
@@ -176,7 +176,17 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: err.error?.message || 'Erro na API do Claude.' }, { status: 500 })
     }
 
-    const claudeData = await claudeRes.json() as { content: Array<{ type: string; text?: string }> }
+    const claudeData = await claudeRes.json() as {
+      content: Array<{ type: string; text?: string }>
+      stop_reason: string
+    }
+
+    if (claudeData.stop_reason === 'max_tokens') {
+      return NextResponse.json({
+        error: 'O extrato possui muitas transações e excedeu o limite de processamento. Tente dividir o extrato em períodos menores (ex: um mês por vez).',
+      }, { status: 422 })
+    }
+
     const rawText = claudeData.content?.find(c => c.type === 'text')?.text ?? ''
 
     // Extrai JSON da resposta (Claude pode incluir texto extra ocasionalmente)
@@ -185,7 +195,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Não foi possível extrair dados estruturados do extrato.' }, { status: 500 })
     }
 
-    const analysis = JSON.parse(jsonMatch[0]) as {
+    type Analysis = {
       bank: string
       period: string
       transactions: Array<{
@@ -204,6 +214,17 @@ export async function POST(req: NextRequest) {
         creditCount: number
       }
       notes: string
+    }
+
+    let analysis: Analysis
+    try {
+      analysis = JSON.parse(jsonMatch[0]) as Analysis
+    } catch (parseErr) {
+      console.error('[consolidacao-bancaria] JSON parse error:', parseErr)
+      console.error('[consolidacao-bancaria] Raw text (first 500):', rawText.slice(0, 500))
+      return NextResponse.json({
+        error: 'A resposta da IA não pôde ser interpretada. Tente novamente ou use um extrato com menos transações.',
+      }, { status: 500 })
     }
 
     // Adiciona labels sequenciais
