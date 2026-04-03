@@ -4,7 +4,7 @@ import { useState, useRef, useCallback, useEffect } from 'react'
 import {
   Landmark, Upload, FileText, AlertCircle, Loader2,
   TrendingDown, TrendingUp, Info, X, ChevronDown, ChevronUp,
-  BarChart3, FileSpreadsheet, File, Eye, Trash2, Calendar, User
+  BarChart3, FileSpreadsheet, File, Eye, Trash2, Calendar, User, Banknote, CheckCircle2
 } from 'lucide-react'
 
 interface Transaction {
@@ -206,7 +206,9 @@ function DeleteModal({ record, onConfirm, onCancel }: {
 
 // ─── Transaction Row ──────────────────────────────────────────────────────────
 
-function TransactionRow({ tx, index }: { tx: Transaction; index: number }) {
+function TransactionRow({ tx, index, checked, onToggle }: {
+  tx: Transaction; index: number; checked?: boolean; onToggle?: () => void
+}) {
   const [showReason, setShowReason] = useState(false)
   const bgClass = tx.type === 'debit' ? 'bg-yellow-100/40' : tx.type === 'credit' ? 'bg-green-50/60' : ''
   const labelClass = tx.type === 'debit' ? 'bg-yellow-200 text-yellow-800 border border-yellow-300'
@@ -215,7 +217,17 @@ function TransactionRow({ tx, index }: { tx: Transaction; index: number }) {
 
   return (
     <>
-      <tr className={`text-sm border-b border-cream-100 ${bgClass} ${index % 2 === 0 && tx.type === 'neutral' ? 'bg-cream-50/40' : ''}`}>
+      <tr className={`text-sm border-b border-cream-100 ${bgClass} ${index % 2 === 0 && tx.type === 'neutral' ? 'bg-cream-50/40' : ''} ${checked ? 'ring-1 ring-inset ring-amber-400' : ''}`}>
+        <td className="px-2 py-2 text-center w-8">
+          {tx.type === 'debit' && (
+            <input
+              type="checkbox"
+              checked={checked ?? false}
+              onChange={onToggle}
+              className="w-3.5 h-3.5 rounded accent-amber-600 cursor-pointer"
+            />
+          )}
+        </td>
         <td className="px-3 py-2 text-navy-500 text-xs whitespace-nowrap">{tx.date}</td>
         <td className="px-3 py-2">
           <div className="flex items-center gap-2">
@@ -240,7 +252,7 @@ function TransactionRow({ tx, index }: { tx: Transaction; index: number }) {
       </tr>
       {showReason && (
         <tr className={bgClass}>
-          <td colSpan={6} className="px-3 pb-2 pt-0">
+          <td colSpan={7} className="px-3 pb-2 pt-0">
             <div className="text-[11px] text-navy-500 italic pl-12 border-l-2 border-cream-200 ml-3">{tx.reason}</div>
           </td>
         </tr>
@@ -386,12 +398,206 @@ function CreditGroupsSection({ transactions, totalCredits }: { transactions: Tra
 }
 
 
+// ─── Lançar Despesas Modal ────────────────────────────────────────────────────
+
+interface SelectedDebit {
+  index: number
+  label: string | null
+  description: string
+  value: number
+  date: string
+}
+
+function LancarDespesasModal({ debits, bank, period, consolidacaoId, onClose, onSuccess }: {
+  debits: SelectedDebit[]
+  bank: string
+  period: string
+  consolidacaoId?: string
+  onClose: () => void
+  onSuccess: () => void
+}) {
+  const total = debits.reduce((sum, d) => sum + d.value, 0)
+  const [dataPagamento, setDataPagamento] = useState(() => new Date().toISOString().slice(0, 10))
+  const [observacoes, setObservacoes] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+  const [success, setSuccess] = useState(false)
+
+  async function handleSubmit() {
+    setLoading(true); setError('')
+    try {
+      const res = await fetch('/api/tesouraria/despesas-bancarias', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          itens: debits.map(d => ({ descricao: d.description, valor: d.value, label: d.label, data: d.date })),
+          totalValor: total,
+          dataPagamento,
+          banco: bank,
+          periodo: period,
+          consolidacaoId,
+          observacoes: observacoes || null,
+        }),
+      })
+      const data = await res.json() as { ok?: boolean; error?: string }
+      if (!res.ok || data.error) throw new Error(data.error || 'Erro ao lançar despesas')
+      setSuccess(true)
+      setTimeout(() => onSuccess(), 1200)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Erro ao lançar')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-navy-900/60 backdrop-blur-sm" onClick={!loading ? onClose : undefined} />
+      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg flex flex-col max-h-[90vh]">
+        {/* Header */}
+        <div className="flex items-center justify-between p-5 border-b border-cream-200 shrink-0">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-amber-100 rounded-lg"><Banknote className="w-5 h-5 text-amber-700" /></div>
+            <div>
+              <h2 className="text-base font-bold text-navy-800">Lançar Despesas Bancárias</h2>
+              <p className="text-xs text-navy-400">{bank} · {period}</p>
+            </div>
+          </div>
+          <button onClick={onClose} disabled={loading} className="p-1.5 rounded-lg hover:bg-cream-100 text-navy-400 disabled:opacity-40">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* Body */}
+        <div className="p-5 space-y-4 overflow-y-auto flex-1">
+          {/* Fixed fields */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-navy-500 mb-1">Projeto</label>
+              <div className="px-3 py-2 bg-cream-50 border border-cream-200 rounded-lg text-sm text-navy-700 font-medium">
+                ADMINISTRAÇÃO GERAL
+              </div>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-navy-500 mb-1">Categoria</label>
+              <div className="px-3 py-2 bg-cream-50 border border-cream-200 rounded-lg text-sm text-navy-700 font-medium">
+                Despesas Bancárias
+              </div>
+            </div>
+          </div>
+
+          {/* Selected items */}
+          <div>
+            <label className="block text-xs font-medium text-navy-500 mb-2">
+              Itens selecionados <span className="text-navy-400">({debits.length})</span>
+            </label>
+            <div className="border border-yellow-200 rounded-lg overflow-hidden">
+              {debits.map((d, i) => (
+                <div key={i} className={`flex items-center justify-between px-3 py-1.5 gap-2 ${i % 2 === 0 ? 'bg-yellow-50/50' : 'bg-white'}`}>
+                  <div className="flex items-center gap-2 min-w-0">
+                    {d.label && (
+                      <span className="text-[10px] font-bold font-mono text-yellow-700 bg-yellow-100 border border-yellow-300 px-1 py-0.5 rounded shrink-0">{d.label}</span>
+                    )}
+                    <span className="text-xs text-navy-600 truncate">{d.description}</span>
+                    <span className="text-[10px] text-navy-400 shrink-0 whitespace-nowrap">{d.date}</span>
+                  </div>
+                  <span className="text-xs font-semibold text-red-600 shrink-0">{fmt(d.value)}</span>
+                </div>
+              ))}
+              <div className="flex items-center justify-between px-3 py-2 bg-navy-800 text-white">
+                <span className="text-xs font-bold uppercase tracking-wide">Total</span>
+                <span className="text-sm font-bold">{fmt(total)}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Date */}
+          <div>
+            <label className="block text-xs font-medium text-navy-500 mb-1">Data de Pagamento</label>
+            <input
+              type="date"
+              value={dataPagamento}
+              onChange={e => setDataPagamento(e.target.value)}
+              className="w-full px-3 py-2 text-sm border border-cream-200 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none"
+            />
+          </div>
+
+          {/* Observacoes */}
+          <div>
+            <label className="block text-xs font-medium text-navy-500 mb-1">
+              Observações <span className="text-navy-300">(opcional)</span>
+            </label>
+            <textarea
+              value={observacoes}
+              onChange={e => setObservacoes(e.target.value)}
+              rows={2}
+              placeholder="Observações adicionais..."
+              className="w-full px-3 py-2 text-sm border border-cream-200 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none resize-none"
+            />
+          </div>
+
+          {error && (
+            <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg text-xs text-red-700">
+              <AlertCircle className="w-4 h-4 shrink-0" /> {error}
+            </div>
+          )}
+          {success && (
+            <div className="flex items-center gap-2 p-3 bg-green-50 border border-green-200 rounded-lg text-xs text-green-700">
+              <CheckCircle2 className="w-4 h-4 shrink-0" /> Despesas lançadas com sucesso!
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="flex items-center justify-between p-5 border-t border-cream-200 shrink-0">
+          <button onClick={onClose} disabled={loading}
+            className="px-4 py-2 text-sm font-medium text-navy-600 hover:bg-cream-100 rounded-lg transition-colors border border-cream-200 disabled:opacity-40">
+            Cancelar
+          </button>
+          <button onClick={handleSubmit} disabled={loading || success || !dataPagamento}
+            className="flex items-center gap-2 px-5 py-2 text-sm font-medium bg-amber-600 text-white rounded-lg hover:bg-amber-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
+            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Banknote className="w-4 h-4" />}
+            Lançar Despesas
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ─── Results Panel ────────────────────────────────────────────────────────────
 
 function ResultsPanel({ result, onClear }: { result: AnalysisResult; onClear: () => void }) {
   const net = result.summary.totalCredits - result.summary.totalDebits
+  const [checkedIndexes, setCheckedIndexes] = useState<Set<number>>(new Set())
+  const [lancarModalOpen, setLancarModalOpen] = useState(false)
+
+  useEffect(() => { setCheckedIndexes(new Set()) }, [result])
+
+  function toggleDebit(i: number) {
+    setCheckedIndexes(prev => {
+      const next = new Set(prev)
+      if (next.has(i)) next.delete(i)
+      else next.add(i)
+      return next
+    })
+  }
+
+  const selectedDebits: SelectedDebit[] = result.transactions
+    .map((tx, i) => ({ tx, i }))
+    .filter(({ tx, i }) => tx.type === 'debit' && checkedIndexes.has(i))
+    .map(({ tx, i }) => ({
+      index: i,
+      label: tx.label,
+      description: tx.description,
+      value: tx.debit ?? 0,
+      date: tx.date,
+    }))
+
+  const selectedTotal = selectedDebits.reduce((sum, d) => sum + d.value, 0)
 
   return (
+    <>
     <div className="flex flex-col h-full overflow-hidden">
       {/* Header */}
       <div className="p-4 border-b border-cream-200 bg-white shrink-0">
@@ -449,11 +655,28 @@ function ResultsPanel({ result, onClear }: { result: AnalysisResult; onClear: ()
         <div className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm bg-white border border-cream-200 inline-block" /><span className="text-[10px] text-navy-500">Neutro</span></div>
       </div>
 
+      {/* Action bar — visible when debits are selected */}
+      {checkedIndexes.size > 0 && (
+        <div className="px-4 py-2 bg-amber-50 border-b border-amber-300 flex items-center justify-between shrink-0">
+          <span className="text-xs font-medium text-amber-800">
+            {checkedIndexes.size} débito(s) selecionado(s) &nbsp;·&nbsp; <span className="font-bold">{fmt(selectedTotal)}</span>
+          </span>
+          <button
+            onClick={() => setLancarModalOpen(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-600 text-white text-xs font-semibold rounded-lg hover:bg-amber-700 transition-colors shadow-sm"
+          >
+            <Banknote className="w-3.5 h-3.5" />
+            Lançar despesas bancárias
+          </button>
+        </div>
+      )}
+
       {/* Transactions table */}
       <div className="overflow-y-auto flex-1">
         <table className="w-full">
           <thead className="sticky top-0 bg-navy-800 text-cream-50 text-[10px] uppercase z-10">
             <tr>
+              <th className="px-2 py-2 text-center w-8"></th>
               <th className="px-3 py-2 text-left whitespace-nowrap">Data</th>
               <th className="px-3 py-2 text-left">Descrição</th>
               <th className="px-3 py-2 text-right whitespace-nowrap">Débito</th>
@@ -463,7 +686,13 @@ function ResultsPanel({ result, onClear }: { result: AnalysisResult; onClear: ()
             </tr>
           </thead>
           <tbody>
-            {result.transactions.map((tx, i) => <TransactionRow key={i} tx={tx} index={i} />)}
+            {result.transactions.map((tx, i) => (
+              <TransactionRow
+                key={i} tx={tx} index={i}
+                checked={checkedIndexes.has(i)}
+                onToggle={tx.type === 'debit' ? () => toggleDebit(i) : undefined}
+              />
+            ))}
           </tbody>
         </table>
       </div>
@@ -484,6 +713,21 @@ function ResultsPanel({ result, onClear }: { result: AnalysisResult; onClear: ()
       {/* Credit groups */}
       <CreditGroupsSection transactions={result.transactions} totalCredits={result.summary.totalCredits} />
     </div>
+
+    {lancarModalOpen && (
+      <LancarDespesasModal
+        debits={selectedDebits}
+        bank={result.bank}
+        period={result.period}
+        consolidacaoId={result.id}
+        onClose={() => setLancarModalOpen(false)}
+        onSuccess={() => {
+          setCheckedIndexes(new Set())
+          setLancarModalOpen(false)
+        }}
+      />
+    )}
+    </>
   )
 }
 

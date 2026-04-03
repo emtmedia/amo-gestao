@@ -1052,3 +1052,23 @@ model ConsolidacaoBancaria {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 }
+
+
+// ============================================
+// TESOURARIA – DESPESAS BANCÁRIAS
+// ============================================
+model DespesaBancaria {
+  id                 String   @id @default(cuid())
+  itens              String   // JSON array de itens selecionados
+  totalValor         Float
+  dataPagamento      DateTime
+  projetoDirecionado String   @default("ADMINISTRAÇÃO GERAL")
+  banco              String?
+  periodo            String?
+  consolidacaoId     String?
+  observacoes        String?
+  criadoPorId        String
+  criadoPorNome      String
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+}
