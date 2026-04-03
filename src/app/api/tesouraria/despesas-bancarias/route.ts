@@ -5,6 +5,31 @@ import { prisma } from '@/lib/prisma'
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
+const PROJETO_NOME = 'ADMINISTRAÇÃO GERAL'
+
+/** Garante que o projeto "ADMINISTRAÇÃO GERAL" existe e retorna seu id. */
+async function getOrCreateProjetoAdmGeral(): Promise<string> {
+  const existing = await prisma.projetoFilantropia.findFirst({
+    where: { nome: PROJETO_NOME },
+    select: { id: true },
+  })
+  if (existing) return existing.id
+
+  const created = await prisma.projetoFilantropia.create({
+    data: {
+      nome: PROJETO_NOME,
+      dataInicio: new Date('2020-01-01'),
+      dataEncerramento: new Date('2099-12-31'),
+      responsavel: 'Tesouraria',
+      telefoneResponsavel: '-',
+      orcamentoEstimado: 0,
+      comentarios: 'Projeto criado automaticamente para despesas bancárias e administrativas gerais.',
+    },
+    select: { id: true },
+  })
+  return created.id
+}
+
 export async function GET() {
   try {
     const session = await getSession()
@@ -54,12 +79,16 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Dados incompletos.' }, { status: 400 })
     }
 
+    // Garante que o projeto existe e obtém seu UUID real
+    const projetoId = await getOrCreateProjetoAdmGeral()
+
     const record = await prisma.despesaBancaria.create({
       data: {
         itens: JSON.stringify(itens),
         totalValor: Number(totalValor),
         dataPagamento: new Date(dataPagamento),
-        projetoDirecionado: 'ADMINISTRAÇÃO GERAL',
+        projetoDirecionado: projetoId,
+        projetoNome: PROJETO_NOME,
         banco: banco || null,
         periodo: periodo || null,
         consolidacaoId: consolidacaoId || null,
@@ -69,7 +98,7 @@ export async function POST(req: NextRequest) {
       },
     })
 
-    return NextResponse.json({ ok: true, id: record.id })
+    return NextResponse.json({ ok: true, id: record.id, projetoId })
   } catch (error) {
     console.error('[despesas-bancarias POST]', error)
     return NextResponse.json({ error: 'Erro ao lançar despesas bancárias.' }, { status: 500 })

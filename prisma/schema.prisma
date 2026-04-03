@@ -1062,7 +1062,8 @@ model DespesaBancaria {
   itens              String   // JSON array de itens selecionados
   totalValor         Float
   dataPagamento      DateTime
-  projetoDirecionado String   @default("ADMINISTRAÇÃO GERAL")
+  projetoDirecionado String   // UUID do ProjetoFilantropia
+  projetoNome        String   @default("ADMINISTRAÇÃO GERAL")
   banco              String?
   periodo            String?
   consolidacaoId     String?

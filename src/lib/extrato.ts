@@ -98,15 +98,18 @@ export async function fetchTransacoesProjeto(projetoId: string, L: LookupTables)
       prisma.despesaCopaCozinha.findMany({ where }),
     ])
 
-  const aq = await prisma.$queryRawUnsafe<{ id: string; descricao: string; dataAquisicao: Date; valorAquisicao: unknown; observacoes: string | null }[]>(
-    `SELECT "id","descricao","dataAquisicao","valorAquisicao","observacoes" FROM "Aquisicao" WHERE "projetoId" = $1`, projetoId
-  )
+  const [aq, dbank] = await Promise.all([
+    prisma.$queryRawUnsafe<{ id: string; descricao: string; dataAquisicao: Date; valorAquisicao: unknown; observacoes: string | null }[]>(
+      `SELECT "id","descricao","dataAquisicao","valorAquisicao","observacoes" FROM "Aquisicao" WHERE "projetoId" = $1`, projetoId
+    ),
+    prisma.despesaBancaria.findMany({ where: { projetoDirecionado: projetoId } }),
+  ])
 
-  return normalizeTransacoes(rpub, rpf, rpj, rcur, rprod, rsvc, revet, rout, dcons, ddig, dloc, dext, dcopa, aq, L)
+  return normalizeTransacoes(rpub, rpf, rpj, rcur, rprod, rsvc, revet, rout, dcons, ddig, dloc, dext, dcopa, aq, L, dbank)
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function normalizeTransacoes(rpub: any[], rpf: any[], rpj: any[], rcur: any[], rprod: any[], rsvc: any[], revet: any[], rout: any[], dcons: any[], ddig: any[], dloc: any[], dext: any[], dcopa: any[], aq: any[], L: LookupTables): Lancamento[] {
+function normalizeTransacoes(rpub: any[], rpf: any[], rpj: any[], rcur: any[], rprod: any[], rsvc: any[], revet: any[], rout: any[], dcons: any[], ddig: any[], dloc: any[], dext: any[], dcopa: any[], aq: any[], L: LookupTables, dbank: any[] = []): Lancamento[] {
   const items: Lancamento[] = []
 
   rpub.forEach(r => items.push({ id: r.id, data: r.dataEntrada, tipo: 'entrada', categoria: 'Receita Pública', descricao: `${r.nomeOrgao} — ${r.tipoReceita}`, valor: r.valorRecurso, observacoes: r.observacoes ?? null }))
@@ -124,6 +127,23 @@ function normalizeTransacoes(rpub: any[], rpf: any[], rpj: any[], rcur: any[], r
   dext.forEach(d => items.push({ id: d.id, data: d.dataPagamento, tipo: 'saida', categoria: 'Serviços Externos', descricao: [L.fornecedores.get(d.fornecedorId), L.servicosPrestados.get(d.servicoPrestadoId)].filter(Boolean).join(' — '), valor: d.valor, observacoes: d.observacoes ?? null }))
   dcopa.forEach(d => items.push({ id: d.id, data: d.dataPagamento, tipo: 'saida', categoria: 'Copa e Cozinha', descricao: [L.fornecedores.get(d.fornecedorId), L.itensCopa.get(d.itemCopaCozinhaId)].filter(Boolean).join(' — '), valor: d.valorPagamento, observacoes: d.observacoes ?? null }))
   aq.forEach(a => items.push({ id: a.id, data: String(a.dataAquisicao), tipo: 'saida', categoria: 'Aquisições', descricao: a.descricao, valor: Number(a.valorAquisicao), observacoes: a.observacoes ?? null }))
+
+  // Despesas Bancárias — cada item do JSON vira um lançamento individual
+  dbank.forEach(d => {
+    const itens: { descricao: string; valor: number; label: string | null; data: string }[] = JSON.parse(d.itens)
+    const baseData: string = d.dataPagamento instanceof Date ? d.dataPagamento.toISOString() : String(d.dataPagamento)
+    itens.forEach((item, idx) => {
+      items.push({
+        id: `${d.id}-${idx}`,
+        data: baseData,
+        tipo: 'saida',
+        categoria: 'Despesas Bancárias',
+        descricao: item.label ? `[${item.label}] ${item.descricao}` : item.descricao,
+        valor: item.valor,
+        observacoes: d.observacoes ?? null,
+      })
+    })
+  })
 
   return items.sort((a, b) => new Date(a.data).getTime() - new Date(b.data).getTime())
 }
